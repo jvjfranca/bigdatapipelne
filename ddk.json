@@ -1,11 +1,38 @@
 {
     "cdk_version": "2.29.0",
     "environments": {
+        "cicd": {
+            "account": "385129512828",
+            "region": "us-east-1"
+        },
         "dev": {
-            "account": "222222222222",
+            "account": "780103130592",
             "region": "us-east-1",
             "resources": {
-                "ddk-bucket": {"versioned": false, "removal_policy": "destroy"}
+                "ddk-bucket": {
+                    "versioned": false,
+                    "removal_policy": "destroy"
+                }
+            }
+        },
+        "hom": {
+            "account": "547680643560",
+            "region": "us-east-1",
+            "resources": {
+                "ddk-bucket": {
+                    "versioned": true,
+                    "removal_policy": "retain"
+                }
+            }
+        },
+        "prod": {
+            "account": "739500713403",
+            "region": "us-east-1",
+            "resources": {
+                "ddk-bucket": {
+                    "versioned": true,
+                    "removal_policy": "retain"
+                }
             }
         }
     }
