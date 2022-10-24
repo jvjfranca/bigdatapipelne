@@ -24,15 +24,16 @@ config = Config()
 (
     CICDPipelineStack(
         app,
-        id="DdkCodePipeline",
+        id="BlackBeltBank",
         environment_id="cicd",
-        pipeline_name="ddk-application-pipeline",
+        pipeline_name="DDK-Pipeline",
     )
     .add_source_action(repository_name="ddk-repository")
     .add_synth_action()
     .build()
     .add_stage("dev", ApplicationStage(app, "dev", env=config.get_env("dev")))
     .add_stage("hom", ApplicationStage(app, "hom", env=config.get_env("hom")))
+    .add_stage("hom", ApplicationStage(app, "hom", env=config.get_env("hom")), manual_approvals=True)
     .synth()
 )
 
