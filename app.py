@@ -33,6 +33,7 @@ config = Config()
     .build()
     .add_stage("dev", ApplicationStage(app, "dev", env=config.get_env("dev")))
     .add_stage("hom", ApplicationStage(app, "hom", env=config.get_env("hom")), manual_approvals=True)
+    .add_stage("prod", ApplicationStage(app, "prod", env=config.get_env("prod")), manual_approvals=True)
     .synth()
 )
 
