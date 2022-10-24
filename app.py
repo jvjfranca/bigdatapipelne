@@ -24,9 +24,9 @@ config = Config()
 (
     CICDPipelineStack(
         app,
-        id="BlackBeltBank",
+        id="DdkCodePipeline",
         environment_id="cicd",
-        pipeline_name="DDK-Pipeline",
+        pipeline_name="ddk-application-pipeline",
     )
     .add_source_action(repository_name="ddk-repository")
     .add_synth_action()
