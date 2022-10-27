@@ -48,5 +48,6 @@ class DdkApplicationStack(BaseStack):
             environment_id,
             delivery_stream_name="card-ingestion",
             bucket=card_data,
-            data_output_prefix="raw/"
+            data_output_prefix="raw/",
+            data_stream=data_stream
         )
