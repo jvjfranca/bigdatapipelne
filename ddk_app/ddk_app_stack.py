@@ -12,7 +12,10 @@ from aws_ddk_core.resources import (
     S3Factory as s3,
     SQSFactory as sqs
 )
-from aws_ddk_core.resources.commons import Duration
+from aws_ddk_core.stages import (
+    KinesisToS3Stage
+)
+from aws_cdk import Duration
 from constructs import Construct
 
 
@@ -23,7 +26,7 @@ class DdkApplicationStack(BaseStack):
 
 
         # The code that defines your stack goes here. For example:
-        ddk_bucket = s3.bucket(
+        card_data = s3.bucket(
             self,
             "ddk-bucket",
             environment_id,
@@ -34,7 +37,16 @@ class DdkApplicationStack(BaseStack):
             "card-stream",
             environment_id,
             encryption=StreamEncryption.MANAGED,
-            retention_period=Duration("2629800"),
+            retention_period=Duration.days(30),
             stream_mode=StreamMode.ON_DEMAND,
             stream_name="card-stream"
+        )
+
+        stage_firehose_s3 = KinesisToS3Stage(
+            self,
+            "card-data-ingestion",
+            environment_id,
+            delivery_stream_name="card-ingestion",
+            bucket=card_data,
+            data_output_prefix="raw/"
         )
