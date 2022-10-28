@@ -106,7 +106,13 @@ class DdkApplicationStack(BaseStack):
                             ]
                         ),
                         CfnDeliveryStream.ProcessorProperty(
-                            type="AppendDelimiterToRecord"
+                            type="AppendDelimiterToRecord",
+                            parameters=[
+                                CfnDeliveryStream.ProcessorParameterProperty(
+                                    parameter_name="Delimiter",
+                                    parameter_value='\\n'
+                                )
+                            ]
                         )
                     ]
                 )
