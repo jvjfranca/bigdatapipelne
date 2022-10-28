@@ -1,12 +1,16 @@
 from typing import Any
 from aws_cdk import (
-    aws_kinesisfirehose_alpha as firehose,
+    aws_kinesisfirehose as firehose,
+    aws_kinesisfirehose_alpha as alpha_firehose,
+    aws_kinesisfirehose_destinations_alpha as destinations,
     aws_kinesis,
     aws_kms as kms,
+    aws_iam as iam,
     RemovalPolicy,
     Duration,
     Size
 )
+
 from aws_cdk.aws_kinesisfirehose import (
     CfnDeliveryStream
 )
@@ -14,8 +18,7 @@ from aws_ddk_core.base import BaseStack
 
 from aws_ddk_core.resources import (
     S3Factory as s3,
-    KinesisStreamsFactory as dstream,
-    KMSFactory as kms,
+    KinesisStreamsFactory as dstream
 )
 from aws_ddk_core.stages import (
     KinesisToS3Stage as streams3
@@ -28,16 +31,18 @@ class DdkApplicationStack(BaseStack):
     def __init__(self, scope: Construct, id: str, environment_id: str, **kwargs: Any) -> None:
         super().__init__(scope, id, environment_id, **kwargs)
 
-
         # The code that defines your stack goes here. For example:
         card_data = s3.bucket(
             self,
             "ddk-bucket",
-            environment_id,
+            environment_id
         )
-
-        key = kms.Key(self, "Key", removal_policy=RemovalPolicy.DESTROY)
-
+        
+        cmk_key = kms.Key(
+            self,
+            "bbbankkey",
+            removal_policy=RemovalPolicy.DESTROY
+        )
 
         data_stream = dstream.data_stream(
             self,
@@ -49,32 +54,39 @@ class DdkApplicationStack(BaseStack):
             stream_name="card-stream"
         )
 
-        destination_config = firehose.DestinationConfig(
-            extended_s3_destination_configuration=CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
+        firehose_role = iam.Role(
+            self,
+            'bbbank-firehose-role',
+            assumed_by=iam.ServicePrincipal('firehose.amazonaws.com'),
+            description='role utilizada pelo firehose do bbbank'
+        )
+        data_stream.grant_read(firehose_role)
+        card_data.grant_read_write(firehose_role)
+
+        firehose_destination=CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
                 bucket_arn=card_data.bucket_arn,
-                role_arn="roleArn",
+                role_arn=firehose_role.role_arn,
                 # the properties below are optional
                 buffering_hints=CfnDeliveryStream.BufferingHintsProperty(
                     interval_in_seconds=300,
-                    size_in_mBs=64
+                    size_in_m_bs=64
                 ),
-                cloud_watch_logging_options=CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
-                    enabled=False,
-                    log_group_name="logGroupName",
-                    log_stream_name="logStreamName"
-                ),
+                # cloud_watch_logging_options=CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
+                #     enabled=False,
+                #     log_group_name="logGroupName",
+                #     log_stream_name="logStreamName"
+                # ),
                 compression_format="GZIP",
-                enabled=True,
                 dynamic_partitioning_configuration=CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
                     enabled=True,
                     retry_options=CfnDeliveryStream.RetryOptionsProperty(duration_in_seconds=300)
                 ),
                 encryption_configuration=CfnDeliveryStream.EncryptionConfigurationProperty(
                     kms_encryption_config=CfnDeliveryStream.KMSEncryptionConfigProperty(
-                        awskms_key_arn=key.key_arn
+                        awskms_key_arn=cmk_key.key_arn
                     )
                 ),
-                error_output_prefix="errorOutputPrefix",
+                error_output_prefix="error/",
                 prefix="data/UF=!{partitionKeyFromQuery:uf}",
                 processing_configuration=CfnDeliveryStream.ProcessingConfigurationProperty(
                     enabled=True,
@@ -96,31 +108,27 @@ class DdkApplicationStack(BaseStack):
                     ]
                 )
             )
+
+        firehose_source = CfnDeliveryStream.KinesisStreamSourceConfigurationProperty(
+            kinesis_stream_arn=data_stream.stream_arn,
+            role_arn=firehose_role.role_arn
         )
 
-        delivery_stream = firehose.DeliveryStream(
+
+        delivery_stream = firehose.CfnDeliveryStream(
             self,
             'firehose',
-            destinations=destination_config,
-            source_stream=data_stream
-        )
-
-        test_stage = streams3(
-            self,
-            "card-data-ingestion2",
-            environment_id,
-            bucket=card_data,
-            delivery_stream=delivery_stream,
-            data_stream=data_stream
+            extended_s3_destination_configuration=firehose_destination,
+            kinesis_stream_source_configuration=firehose_source
         )
 
 
-        stage_firehose_s3 = streams3(
-            self,
-            "card-data-ingestion",
-            environment_id,
-            delivery_stream_name="card-ingestion",
-            bucket=card_data,
-            data_output_prefix="raw/",
-            data_stream=data_stream
-        )
+        # stage_firehose_s3 = streams3(
+        #     self,
+        #     "card-data-ingestion",
+        #     environment_id,
+        #     delivery_stream_name="card-ingestion",
+        #     bucket=card_data,
+        #     data_output_prefix="raw/",
+        #     data_stream=data_stream
+        # )
