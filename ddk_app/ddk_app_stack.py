@@ -118,6 +118,7 @@ class DdkApplicationStack(BaseStack):
         delivery_stream = firehose.CfnDeliveryStream(
             self,
             'firehose',
+            delivery_stream_type='KinesisStreamAsSource',
             extended_s3_destination_configuration=firehose_destination,
             kinesis_stream_source_configuration=firehose_source
         )
