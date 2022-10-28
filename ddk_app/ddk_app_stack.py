@@ -71,11 +71,11 @@ class DdkApplicationStack(BaseStack):
                     interval_in_seconds=300,
                     size_in_m_bs=64
                 ),
-                # cloud_watch_logging_options=CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
-                #     enabled=False,
-                #     log_group_name="logGroupName",
-                #     log_stream_name="logStreamName"
-                # ),
+                cloud_watch_logging_options=CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
+                    enabled=True,
+                    log_group_name="firehose-bbbank",
+                    log_stream_name="cartao"
+                ),
                 compression_format="GZIP",
                 dynamic_partitioning_configuration=CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
                     enabled=True,
@@ -87,7 +87,7 @@ class DdkApplicationStack(BaseStack):
                     )
                 ),
                 error_output_prefix="error/",
-                prefix="data/UF=!{partitionKeyFromQuery:uf}",
+                prefix="data/UF=!{partitionKeyFromQuery:uf}/",
                 processing_configuration=CfnDeliveryStream.ProcessingConfigurationProperty(
                     enabled=True,
                     processors=[
@@ -97,13 +97,16 @@ class DdkApplicationStack(BaseStack):
                             parameters=[
                                 CfnDeliveryStream.ProcessorParameterProperty(
                                     parameter_name="MetadataExtractionQuery",
-                                    parameter_value="{uf:.uf}"
+                                    parameter_value="{uf:.localizacao.uf}"
                                 ),
                                 CfnDeliveryStream.ProcessorParameterProperty(
                                     parameter_name="JsonParsingEngine",
                                     parameter_value="JQ-1.6"
                                 )
                             ]
+                        ),
+                        CfnDeliveryStream.ProcessorProperty(
+                            type="AppendDelimiterToRecord"
                         )
                     ]
                 )
