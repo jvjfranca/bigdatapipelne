@@ -42,6 +42,8 @@ class DdkApplicationStack(BaseStack):
             retention=logs.RetentionDays.TWO_WEEKS
         )
 
+        firehose_log.node.add_dependency(cmk_key)
+
         firehose_log.add_stream(
             'log-stream-cartoes',
             log_stream_name='cartoes'
@@ -148,3 +150,5 @@ class DdkApplicationStack(BaseStack):
             extended_s3_destination_configuration=firehose_destination,
             kinesis_stream_source_configuration=firehose_source
         )
+
+        delivery_stream.node.add_dependency(firehose_log)
