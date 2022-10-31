@@ -52,7 +52,8 @@ class DdkApplicationStack(BaseStack):
                     ],
                     principals=[
                         iam.ServicePrincipal("logs.us-east-1.amazonaws.com"),
-                    ]
+                    ],
+                    resources=["*"]
                 )
             ]
         )
