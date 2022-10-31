@@ -37,7 +37,9 @@ class DdkApplicationStack(BaseStack):
                         "kms:Describe*",
                         "kms:Enable*",
                         "kms:List*",
-                        "kms:Put*"
+                        "kms:Put*",
+                        "kms:Delete*",
+                        "kms:Get*"
                     ],
                     principals=[iam.AccountRootPrincipal()],
                     resources=["*"],
