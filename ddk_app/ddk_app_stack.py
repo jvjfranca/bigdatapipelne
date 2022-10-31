@@ -61,7 +61,7 @@ class DdkApplicationStack(BaseStack):
             removal_policy=RemovalPolicy.DESTROY
         )
 
-        cmk_key.add_alias('bbbank-key')
+        cmk_key.add_alias('cmk-bbbank')
 
         firehose_log = logs.LogGroup(
             self,
