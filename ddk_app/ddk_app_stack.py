@@ -1,3 +1,4 @@
+from importlib import resources
 from typing import Any
 from aws_cdk import (
     aws_kinesisfirehose as firehose,
@@ -27,11 +28,43 @@ class DdkApplicationStack(BaseStack):
     def __init__(self, scope: Construct, id: str, environment_id: str, **kwargs: Any) -> None:
         super().__init__(scope, id, environment_id, **kwargs)
 
+
+        kms_policy = iam.PolicyDocument(
+            statements=[
+                iam.PolicyStatement(
+                    actions=[
+                        "kms:Create*",
+                        "kms:Describe*",
+                        "kms:Enable*",
+                        "kms:List*",
+                        "kms:Put*"
+                    ],
+                    principals=[iam.AccountRootPrincipal()],
+                    resources=["*"],
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "kms:Encrypt*",
+                        "kms:Decrypt*",
+                        "kms:ReEncrypt*",
+                        "kms:GenerateDataKey*",
+                        "kms:Describe*"
+                    ],
+                    principals=[
+                        iam.ServicePrincipal("logs.us-east-1.amazonaws.com"),
+                    ]
+                )
+            ]
+        )
+
         cmk_key = kms.Key(
             self,
             "bbbankkey",
+            policy=kms_policy,
             removal_policy=RemovalPolicy.DESTROY
         )
+
+        cmk_key.add_alias('bbbank-key')
 
         firehose_log = logs.LogGroup(
             self,
