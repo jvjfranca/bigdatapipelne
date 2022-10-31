@@ -50,6 +50,7 @@ class DdkApplicationStack(BaseStack):
                     ],
                     principals=[
                         iam.ServicePrincipal("logs.us-east-1.amazonaws.com"),
+                        iam.ServicePrincipal("glue.amazonaws.com")
                     ],
                     resources=["*"]
                 )
@@ -116,9 +117,11 @@ class DdkApplicationStack(BaseStack):
             assumed_by=iam.ServicePrincipal('firehose.amazonaws.com'),
             description='role utilizada pelo firehose do bbbank'
         )
+
         data_stream.grant_read(firehose_role)
         card_data.grant_read_write(firehose_role)
         firehose_log.grant_write(firehose_role)
+
 
         firehose_destination = firehose.CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
             bucket_arn=card_data.bucket_arn,
