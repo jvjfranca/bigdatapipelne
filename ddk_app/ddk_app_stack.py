@@ -133,7 +133,7 @@ class DdkApplicationStack(BaseStack):
                 log_group_name="firehose-bbbank",
                 log_stream_name="cartoes"
             ),
-            # compression_format="GZIP",
+            compression_format="GZIP",
             dynamic_partitioning_configuration=firehose.CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
                 enabled=True,
                 retry_options=firehose.CfnDeliveryStream.RetryOptionsProperty(
