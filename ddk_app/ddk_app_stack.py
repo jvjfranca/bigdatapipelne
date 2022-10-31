@@ -33,13 +33,7 @@ class DdkApplicationStack(BaseStack):
             statements=[
                 iam.PolicyStatement(
                     actions=[
-                        "kms:Create*",
-                        "kms:Describe*",
-                        "kms:Enable*",
-                        "kms:List*",
-                        "kms:Put*",
-                        "kms:Delete*",
-                        "kms:Get*"
+                        "kms:*",
                     ],
                     principals=[iam.AccountRootPrincipal()],
                     resources=["*"],
