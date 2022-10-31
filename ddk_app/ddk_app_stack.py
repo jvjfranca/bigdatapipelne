@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_iam as iam,
     aws_s3 as cdk_s3,
     aws_logs as logs,
+    aws_databrew as cdk_brew,
     RemovalPolicy,
     Duration,
 )
@@ -15,7 +16,8 @@ from aws_ddk_core.base import BaseStack
 
 from aws_ddk_core.resources import (
     S3Factory as s3,
-    KinesisStreamsFactory as dstream
+    KinesisStreamsFactory as dstream,
+    DataBrewFactory as brew
 )
 from aws_ddk_core.stages import (
     KinesisToS3Stage as streams3
@@ -79,12 +81,18 @@ class DdkApplicationStack(BaseStack):
             log_stream_name='cartoes'
         )
 
-        props = {
-            "encryption_key": cmk_key
-        }
         card_data = s3.bucket(
             self,
             "ddk-bucket",
+            environment_id,
+            encryption_key=cmk_key,
+            encryption=cdk_s3.BucketEncryption.KMS,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+
+        stage_data = s3.bucket(
+            self,
+            "transacoes-stage",
             environment_id,
             encryption_key=cmk_key,
             encryption=cdk_s3.BucketEncryption.KMS,
@@ -125,7 +133,7 @@ class DdkApplicationStack(BaseStack):
                 log_group_name="firehose-bbbank",
                 log_stream_name="cartoes"
             ),
-            compression_format="GZIP",
+            # compression_format="GZIP",
             dynamic_partitioning_configuration=firehose.CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
                 enabled=True,
                 retry_options=firehose.CfnDeliveryStream.RetryOptionsProperty(
@@ -182,3 +190,33 @@ class DdkApplicationStack(BaseStack):
         )
 
         delivery_stream.node.add_dependency(firehose_log)
+
+        # recipe = cdk_brew.CfnRecipe(
+        #     self,
+        #     'dataprep',
+        #     name='dataprep',
+        #     steps=
+        # )
+
+        # job = brew.job(
+        #     self,
+        #     'dataprep',
+        #     environment_id,
+        #     name='dataprep',
+        #     type='RECIPE',
+        #     dataset_name='transacoes-cartoes',
+        #     encryption_mode='SSE-KMS',
+        #     log_subscription='',
+        #     output_location=cdk_brew.CfnJob.OutputProperty(
+        #         location=cdk_brew.CfnJob.S3LocationProperty(
+        #             bucket=stage_data.bucket_name,
+        #             bucket_owner=iam.AccountRootPrincipal.account_id,
+        #             key=cmk_key.key_id
+        #         ),
+        #         compression_format='SNAPPY',
+        #         format='PARQUET'
+
+        #     ),
+        #     recipe=cdk_brew.CfnJob.RecipeProperty(name=''),
+        #     job_props=''
+        # )
