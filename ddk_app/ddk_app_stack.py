@@ -326,7 +326,12 @@ class DdkApplicationStack(BaseStack):
             key_prefix="raw"
         )
 
-
+        
+        (
+            DataPipeline(scope=self, id="transacoes-data-pipeline")
+            .add_stage(transacoes_stage)
+            .add_stage(glue_stage)
+        )
 
         # recipe = cdk_brew.CfnRecipe(
         #     self,
