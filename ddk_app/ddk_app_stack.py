@@ -74,7 +74,7 @@ class DdkApplicationStack(BaseStack):
                         "kms:Decrypt*",
                     ],
                     principals=[
-                        f"arn:aws:iam::{self.account}:role/service-role/aws-quicksight-*"
+                        iam.ArnPrincipal(f"arn:aws:iam::{self.account}:role/service-role/aws-quicksight-*")
                     ],
                     resources=["*"]
                 )
