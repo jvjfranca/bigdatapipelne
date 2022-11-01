@@ -1,5 +1,5 @@
-from importlib import resources
 from typing import Any
+
 from aws_cdk import (
     aws_kinesisfirehose as firehose,
     aws_kinesis,
@@ -7,9 +7,17 @@ from aws_cdk import (
     aws_iam as iam,
     aws_s3 as cdk_s3,
     aws_logs as logs,
-    aws_databrew as cdk_brew,
+    aws_glue as cdk_glue,
     RemovalPolicy,
-    Duration,
+    Duration
+)
+
+from aws_cdk.aws_glue_alpha import (
+    Code,
+    GlueVersion,
+    JobExecutable,
+    JobLanguage,
+    JobType,
 )
 
 from aws_ddk_core.base import BaseStack
@@ -17,10 +25,10 @@ from aws_ddk_core.base import BaseStack
 from aws_ddk_core.resources import (
     S3Factory as s3,
     KinesisStreamsFactory as dstream,
-    DataBrewFactory as brew
 )
 from aws_ddk_core.stages import (
-    KinesisToS3Stage as streams3
+    GlueTransformStage,
+    S3EventStage
 )
 from constructs import Construct
 
@@ -88,7 +96,8 @@ class DdkApplicationStack(BaseStack):
             environment_id,
             encryption_key=cmk_key,
             encryption=cdk_s3.BucketEncryption.KMS,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
+            event_bridge_enabled=True
         )
 
         stage_data = s3.bucket(
@@ -97,7 +106,8 @@ class DdkApplicationStack(BaseStack):
             environment_id,
             encryption_key=cmk_key,
             encryption=cdk_s3.BucketEncryption.KMS,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
+            event_bridge_enabled=True
         )
 
         data_stream = dstream.data_stream(
@@ -121,7 +131,6 @@ class DdkApplicationStack(BaseStack):
         data_stream.grant_read(firehose_role)
         card_data.grant_read_write(firehose_role)
         firehose_log.grant_write(firehose_role)
-
 
         firehose_destination = firehose.CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
             bucket_arn=card_data.bucket_arn,
@@ -193,6 +202,109 @@ class DdkApplicationStack(BaseStack):
         )
 
         delivery_stream.node.add_dependency(firehose_log)
+
+#### DATA PREP
+
+        glue_role = iam.Role(
+            self,
+            'bbbank-glue-role',
+            assumed_by=iam.ServicePrincipal('glue.amazonaws.com'),
+            description='role utilizada pelo glue do bbbank'
+        )
+
+        glue_role.add_managed_policy(
+            policy=iam.ManagedPolicy.from_aws_managed_policy_name(
+                managed_policy_name='arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole'
+            )
+        )
+
+        iam_kms_policy = iam.Policy(
+            self,
+            id='AcessoBBBankKMS',
+            document=iam.PolicyDocument(
+                assign_sids=False,
+                statements=[
+                    iam.PolicyStatement(
+                        actions=[
+                            "kms:Encrypt*",
+                            "kms:Decrypt*",
+                            "kms:ReEncrypt*",
+                            "kms:GenerateDataKey*",
+                            "kms:Describe*"
+                        ],
+                        resources=[
+                            cmk_key.key_arn
+                        ]
+                    )
+                ]
+            )
+        )
+
+        glue_role.attach_inline_policy(iam_kms_policy)
+
+        # stage_data.grant_read_write(glue_role)
+
+        
+        data_base = cdk_glue.CfnDatabase(
+            self,
+            "ddk-database",
+            catalog_id=self.account,
+            database_input=cdk_glue.CfnDatabase.DatabaseInputProperty(
+                description='bbbank database',
+                name='bbbank-database'
+            )
+        )
+
+        glue_stage = GlueTransformStage(
+            self,
+            id='transacoes-cartoes',
+            environment_id=environment_id,
+            executable=JobExecutable.of(
+                glue_version=GlueVersion.V3_0,
+                language=JobLanguage.PYTHON,
+                script=Code.from_asset("etl/transacoes.py"),
+                type=JobType.ETL
+            ),
+            database_name="bbbank-database",
+            targets=cdk_glue.CfnCrawler.TargetsProperty(
+                s3_targets=[
+                    cdk_glue.CfnCrawler.S3TargetProperty(
+                        path=f"s3://{card_data.bucket_name}/raw/"
+                    )
+                ]
+            ),
+            crawler_role=glue_role,
+            job_args={
+                "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
+                "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
+            }
+        )
+
+        card_data.grant_read(glue_role)
+        stage_data.grant_read_write(glue_stage.job)
+
+        glue_stage.state_machine.role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "glue:StartCrawler",
+                ],
+                resources=[
+                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{glue_stage.crawler.ref}"
+                ]
+            )
+        )
+
+        transacoes_stage = S3EventStage(
+            self,
+            id="transacoes-event-capture",
+            environment_id=environment_id,
+            event_names=["Object Created"],
+            bucket_name=card_data.bucket_name,
+            key_prefix="raw"
+        )
+
+
 
         # recipe = cdk_brew.CfnRecipe(
         #     self,
