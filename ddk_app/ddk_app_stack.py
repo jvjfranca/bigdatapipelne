@@ -25,6 +25,7 @@ from aws_ddk_core.base import BaseStack
 from aws_ddk_core.resources import (
     S3Factory as s3,
     KinesisStreamsFactory as dstream,
+    GlueFactory
 )
 from aws_ddk_core.stages import (
     GlueTransformStage,
@@ -257,9 +258,11 @@ class DdkApplicationStack(BaseStack):
             )
         )
 
-        glue_stage = GlueTransformStage(
+        etl_job_name = "job-transacoes-stage"
+        etl_job = GlueFactory.job(
             self,
-            id='transacoes-cartoes',
+            id=f"{id}-job",
+            job_name=etl_job_name,
             environment_id=environment_id,
             executable=JobExecutable.of(
                 glue_version=GlueVersion.V3_0,
@@ -267,6 +270,14 @@ class DdkApplicationStack(BaseStack):
                 script=Code.from_asset("etl/transacoes.py"),
                 type=JobType.ETL
             ),
+            role=glue_role
+        )
+
+        glue_stage = GlueTransformStage(
+            self,
+            id='transacoes-cartoes',
+            environment_id=environment_id,
+            job_name=etl_job_name,
             database_name="bbbank-database",
             targets=cdk_glue.CfnCrawler.TargetsProperty(
                 s3_targets=[
@@ -283,7 +294,7 @@ class DdkApplicationStack(BaseStack):
         )
 
         card_data.grant_read(glue_role)
-        stage_data.grant_read_write(glue_stage.job)
+        stage_data.grant_read_write(etl_job)
 
         glue_stage.state_machine.role.add_to_policy(
             iam.PolicyStatement(
