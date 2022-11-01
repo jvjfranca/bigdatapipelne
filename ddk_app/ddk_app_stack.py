@@ -209,13 +209,12 @@ class DdkApplicationStack(BaseStack):
             self,
             'bbbank-glue-role',
             assumed_by=iam.ServicePrincipal('glue.amazonaws.com'),
-            description='role utilizada pelo glue do bbbank'
-        )
-
-        glue_role.add_managed_policy(
-            policy=iam.ManagedPolicy.from_aws_managed_policy_name(
-                managed_policy_name='arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole'
-            )
+            description='role utilizada pelo glue do bbbank',
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    'service-role/AWSGlueServiceRole'
+                )
+            ]
         )
 
         iam_kms_policy = iam.Policy(
