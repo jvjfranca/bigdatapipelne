@@ -30,6 +30,9 @@ from aws_ddk_core.stages import (
     GlueTransformStage,
     S3EventStage
 )
+
+from aws_ddk_core.pipelines import DataPipeline
+
 from constructs import Construct
 
 
@@ -273,6 +276,7 @@ class DdkApplicationStack(BaseStack):
                 ]
             ),
             crawler_role=glue_role,
+            crawler_name='crw-transacoes-raw',
             job_args={
                 "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
                 "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
