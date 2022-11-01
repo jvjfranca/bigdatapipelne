@@ -1,27 +1,31 @@
 from typing import Any
 
 from aws_cdk import (
-    aws_kinesisfirehose as firehose,
     aws_kinesis,
     aws_kms as kms,
     aws_iam as iam,
-    aws_s3 as cdk_s3,
     aws_logs as logs,
-    aws_glue as cdk_glue,
     RemovalPolicy,
     Duration
 )
-
+from aws_cdk.aws_glue import(
+    CfnDatabase,
+    CfnCrawler
+)
+from aws_cdk.aws_s3 import(
+    BucketEncryption
+)
+from aws_cdk.aws_kinesisfirehose import(
+    CfnDeliveryStream
+)
 from aws_cdk.aws_glue_alpha import (
     Code,
     GlueVersion,
     JobExecutable,
     JobLanguage,
-    JobType,
+    JobType
 )
-
 from aws_ddk_core.base import BaseStack
-
 from aws_ddk_core.resources import (
     S3Factory as s3,
     KinesisStreamsFactory as dstream,
@@ -31,9 +35,7 @@ from aws_ddk_core.stages import (
     GlueTransformStage,
     S3EventStage
 )
-
 from aws_ddk_core.pipelines import DataPipeline
-
 from constructs import Construct
 
 
@@ -42,6 +44,7 @@ class DdkApplicationStack(BaseStack):
     def __init__(self, scope: Construct, id: str, environment_id: str, **kwargs: Any) -> None:
         super().__init__(scope, id, environment_id, **kwargs)
 
+        ##### KMS #####
 
         kms_policy = iam.PolicyDocument(
             statements=[
@@ -65,6 +68,15 @@ class DdkApplicationStack(BaseStack):
                         iam.ServicePrincipal("glue.amazonaws.com")
                     ],
                     resources=["*"]
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "kms:Decrypt*",
+                    ],
+                    principals=[
+                        f"arn:aws:iam::{self.account}:role/service-role/aws-quicksight-*"
+                    ],
+                    resources=["*"]
                 )
             ]
         )
@@ -77,6 +89,8 @@ class DdkApplicationStack(BaseStack):
         )
 
         cmk_key.add_alias('cmk-bbbank')
+
+        ##### CloudWatch Log Groups #####
 
         firehose_log = logs.LogGroup(
             self,
@@ -94,12 +108,14 @@ class DdkApplicationStack(BaseStack):
             log_stream_name='cartoes'
         )
 
+        ##### S3 Bucketss #####
+
         card_data = s3.bucket(
             self,
             "ddk-bucket",
             environment_id,
             encryption_key=cmk_key,
-            encryption=cdk_s3.BucketEncryption.KMS,
+            encryption=BucketEncryption.KMS,
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
@@ -109,10 +125,21 @@ class DdkApplicationStack(BaseStack):
             "transacoes-stage",
             environment_id,
             encryption_key=cmk_key,
-            encryption=cdk_s3.BucketEncryption.KMS,
+            encryption=BucketEncryption.KMS,
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
+
+        transacoes_stage = S3EventStage(
+            self,
+            id="transacoes-event-capture",
+            environment_id=environment_id,
+            event_names=["Object Created"],
+            bucket_name=card_data.bucket_name,
+            key_prefix="raw"
+        )
+
+        ##### Streams #####
 
         data_stream = dstream.data_stream(
             self,
@@ -136,53 +163,52 @@ class DdkApplicationStack(BaseStack):
         card_data.grant_read_write(firehose_role)
         firehose_log.grant_write(firehose_role)
 
-        firehose_destination = firehose.CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
+        firehose_destination = CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
             bucket_arn=card_data.bucket_arn,
             role_arn=firehose_role.role_arn,
-            # the properties below are optional
-            buffering_hints=firehose.CfnDeliveryStream.BufferingHintsProperty(
+            buffering_hints=CfnDeliveryStream.BufferingHintsProperty(
                 interval_in_seconds=300,
                 size_in_m_bs=64
             ),
-            cloud_watch_logging_options=firehose.CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
+            cloud_watch_logging_options=CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                 enabled=True,
                 log_group_name="firehose-bbbank",
                 log_stream_name="cartoes"
             ),
             compression_format="GZIP",
-            dynamic_partitioning_configuration=firehose.CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
+            dynamic_partitioning_configuration=CfnDeliveryStream.DynamicPartitioningConfigurationProperty(
                 enabled=True,
-                retry_options=firehose.CfnDeliveryStream.RetryOptionsProperty(
+                retry_options=CfnDeliveryStream.RetryOptionsProperty(
                     duration_in_seconds=300)
             ),
-            encryption_configuration=firehose.CfnDeliveryStream.EncryptionConfigurationProperty(
-                kms_encryption_config=firehose.CfnDeliveryStream.KMSEncryptionConfigProperty(
+            encryption_configuration=CfnDeliveryStream.EncryptionConfigurationProperty(
+                kms_encryption_config=CfnDeliveryStream.KMSEncryptionConfigProperty(
                     awskms_key_arn=cmk_key.key_arn
                 )
             ),
             error_output_prefix="error/",
             prefix="raw/UF=!{partitionKeyFromQuery:uf}/",
-            processing_configuration=firehose.CfnDeliveryStream.ProcessingConfigurationProperty(
+            processing_configuration=CfnDeliveryStream.ProcessingConfigurationProperty(
                 enabled=True,
                 processors=[
-                    firehose.CfnDeliveryStream.ProcessorProperty(
+                    CfnDeliveryStream.ProcessorProperty(
                         type="MetadataExtraction",
                         # the properties below are optional
                         parameters=[
-                                firehose.CfnDeliveryStream.ProcessorParameterProperty(
+                                CfnDeliveryStream.ProcessorParameterProperty(
                                     parameter_name="MetadataExtractionQuery",
                                     parameter_value="{uf:.localizacao.uf}"
                                 ),
-                                firehose.CfnDeliveryStream.ProcessorParameterProperty(
+                            CfnDeliveryStream.ProcessorParameterProperty(
                                     parameter_name="JsonParsingEngine",
                                     parameter_value="JQ-1.6"
-                            )
+                                    )
                         ]
                     ),
-                    firehose.CfnDeliveryStream.ProcessorProperty(
+                    CfnDeliveryStream.ProcessorProperty(
                         type="AppendDelimiterToRecord",
                         parameters=[
-                            firehose.CfnDeliveryStream.ProcessorParameterProperty(
+                            CfnDeliveryStream.ProcessorParameterProperty(
                                 parameter_name="Delimiter",
                                 parameter_value='\\n'
                             )
@@ -192,12 +218,12 @@ class DdkApplicationStack(BaseStack):
             )
         )
 
-        firehose_source = firehose.CfnDeliveryStream.KinesisStreamSourceConfigurationProperty(
+        firehose_source = CfnDeliveryStream.KinesisStreamSourceConfigurationProperty(
             kinesis_stream_arn=data_stream.stream_arn,
             role_arn=firehose_role.role_arn
         )
 
-        delivery_stream = firehose.CfnDeliveryStream(
+        delivery_stream = CfnDeliveryStream(
             self,
             'firehose',
             delivery_stream_type='KinesisStreamAsSource',
@@ -207,7 +233,7 @@ class DdkApplicationStack(BaseStack):
 
         delivery_stream.node.add_dependency(firehose_log)
 
-#### DATA PREP
+        ##### Glue #####
 
         glue_role = iam.Role(
             self,
@@ -221,7 +247,7 @@ class DdkApplicationStack(BaseStack):
             ]
         )
 
-        iam_kms_policy = iam.Policy(
+        glue_kms_access = iam.Policy(
             self,
             id='AcessoBBBankKMS',
             document=iam.PolicyDocument(
@@ -243,51 +269,51 @@ class DdkApplicationStack(BaseStack):
             )
         )
 
-        glue_role.attach_inline_policy(iam_kms_policy)
-
-        # stage_data.grant_read_write(glue_role)
+        glue_role.attach_inline_policy(glue_kms_access)
 
         database_name = 'bbbank-database'
-        data_base = cdk_glue.CfnDatabase(
+        CfnDatabase(
             self,
             database_name,
             catalog_id=self.account,
-            database_input=cdk_glue.CfnDatabase.DatabaseInputProperty(
+            database_input=CfnDatabase.DatabaseInputProperty(
                 description='bbbank database',
                 name=database_name
             )
         )
 
-        crw_transacoes_raw_name = 'crw-transacoes-raw' 
-        cdk_glue.CfnCrawler(
+        crw_transacoes_raw_name = 'crw-transacoes-raw'
+        CfnCrawler(
             self,
             id=crw_transacoes_raw_name,
             name=crw_transacoes_raw_name,
             role=glue_role.role_name,
             database_name=database_name,
-            targets=cdk_glue.CfnCrawler.TargetsProperty(
+            targets=CfnCrawler.TargetsProperty(
                 s3_targets=[
-                    cdk_glue.CfnCrawler.S3TargetProperty(
+                    CfnCrawler.S3TargetProperty(
                         path=f"s3://{card_data.bucket_name}/raw/"
                     )
                 ]
             )
         )
-        crw_transacoes_stage_name = 'crw-transacoes-stage' 
-        cdk_glue.CfnCrawler(
+        
+        crw_transacoes_stage_name = 'crw-transacoes-stage'
+        CfnCrawler(
             self,
             id=crw_transacoes_stage_name,
             name=crw_transacoes_stage_name,
             role=glue_role.role_name,
             database_name=database_name,
-            targets=cdk_glue.CfnCrawler.TargetsProperty(
+            targets=CfnCrawler.TargetsProperty(
                 s3_targets=[
-                    cdk_glue.CfnCrawler.S3TargetProperty(
+                    CfnCrawler.S3TargetProperty(
                         path=f"s3://{stage_data.bucket_name}/stage/"
                     )
                 ]
             )
         )
+        
         etl_job_name = "job-transacoes-stage"
         etl_job = GlueFactory.job(
             self,
@@ -303,7 +329,7 @@ class DdkApplicationStack(BaseStack):
             role=glue_role,
 
         )
-        
+
         glue_stage = GlueTransformStage(
             self,
             id='transacoes-cartoes',
@@ -331,48 +357,9 @@ class DdkApplicationStack(BaseStack):
             )
         )
 
-        transacoes_stage = S3EventStage(
-            self,
-            id="transacoes-event-capture",
-            environment_id=environment_id,
-            event_names=["Object Created"],
-            bucket_name=card_data.bucket_name,
-            key_prefix="raw"
-        )
-
-        
+        ##### Data Pipeline #####
         (
             DataPipeline(scope=self, id="transacoes-data-pipeline")
             .add_stage(transacoes_stage)
             .add_stage(glue_stage)
         )
-
-        # recipe = cdk_brew.CfnRecipe(
-        #     self,
-        #     'dataprep',
-        #     name='dataprep',
-        #     steps=
-        # )
-
-        # job = brew.job(
-        #     self,
-        #     'dataprep',
-        #     environment_id,
-        #     name='dataprep',
-        #     type='RECIPE',
-        #     dataset_name='transacoes-cartoes',
-        #     encryption_mode='SSE-KMS',
-        #     log_subscription='',
-        #     output_location=cdk_brew.CfnJob.OutputProperty(
-        #         location=cdk_brew.CfnJob.S3LocationProperty(
-        #             bucket=stage_data.bucket_name,
-        #             bucket_owner=iam.AccountRootPrincipal.account_id,
-        #             key=cmk_key.key_id
-        #         ),
-        #         compression_format='SNAPPY',
-        #         format='PARQUET'
-
-        #     ),
-        #     recipe=cdk_brew.CfnJob.RecipeProperty(name=''),
-        #     job_props=''
-        # )
