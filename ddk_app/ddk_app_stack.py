@@ -259,7 +259,7 @@ class DdkApplicationStack(BaseStack):
         )
 
         crw_transacoes_raw_name = 'crw-transacoes-raw' 
-        crawler_transacoes = cdk_glue.CfnCrawler(
+        cdk_glue.CfnCrawler(
             self,
             id=crw_transacoes_raw_name,
             name=crw_transacoes_raw_name,
@@ -273,7 +273,21 @@ class DdkApplicationStack(BaseStack):
                 ]
             )
         )
-
+        crw_transacoes_stage_name = 'crw-transacoes-stage' 
+        cdk_glue.CfnCrawler(
+            self,
+            id=crw_transacoes_stage_name,
+            name=crw_transacoes_stage_name,
+            role=glue_role.role_name,
+            database_name=database_name,
+            targets=cdk_glue.CfnCrawler.TargetsProperty(
+                s3_targets=[
+                    cdk_glue.CfnCrawler.S3TargetProperty(
+                        path=f"s3://{stage_data.bucket_name}/stage/"
+                    )
+                ]
+            )
+        )
         etl_job_name = "job-transacoes-stage"
         etl_job = GlueFactory.job(
             self,
@@ -289,7 +303,7 @@ class DdkApplicationStack(BaseStack):
             role=glue_role,
 
         )
-
+        
         glue_stage = GlueTransformStage(
             self,
             id='transacoes-cartoes',
