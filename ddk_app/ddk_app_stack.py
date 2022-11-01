@@ -247,14 +247,29 @@ class DdkApplicationStack(BaseStack):
 
         # stage_data.grant_read_write(glue_role)
 
-        
+        database_name = 'bbbank-database'
         data_base = cdk_glue.CfnDatabase(
             self,
-            "ddk-database",
+            database_name,
             catalog_id=self.account,
             database_input=cdk_glue.CfnDatabase.DatabaseInputProperty(
                 description='bbbank database',
-                name='bbbank-database'
+                name=database_name
+            )
+        )
+
+        crw_transacoes_raw_name = 'crw-transacoes-raw' 
+        crawler_transacoes = cdk_glue.CfnCrawler(
+            self,
+            id=crw_transacoes_raw_name,
+            name=crw_transacoes_raw_name,
+            role=glue_role.role_name,
+            targets=cdk_glue.CfnCrawler.TargetsProperty(
+                s3_targets=[
+                    cdk_glue.CfnCrawler.S3TargetProperty(
+                        path=f"s3://{card_data.bucket_name}/raw/"
+                    )
+                ]
             )
         )
 
@@ -270,7 +285,8 @@ class DdkApplicationStack(BaseStack):
                 script=Code.from_asset("etl/transacoes.py"),
                 type=JobType.ETL
             ),
-            role=glue_role
+            role=glue_role,
+
         )
 
         glue_stage = GlueTransformStage(
@@ -278,15 +294,8 @@ class DdkApplicationStack(BaseStack):
             id='transacoes-cartoes',
             environment_id=environment_id,
             job_name=etl_job_name,
-            database_name="bbbank-database",
-            targets=cdk_glue.CfnCrawler.TargetsProperty(
-                s3_targets=[
-                    cdk_glue.CfnCrawler.S3TargetProperty(
-                        path=f"s3://{card_data.bucket_name}/raw/"
-                    )
-                ]
-            ),
-            crawler_role=glue_role,
+            database_name=database_name,
+            crawler_name=crw_transacoes_raw_name,
             job_args={
                 "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
                 "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
@@ -303,7 +312,7 @@ class DdkApplicationStack(BaseStack):
                     "glue:StartCrawler",
                 ],
                 resources=[
-                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{glue_stage.crawler.ref}"
+                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{crw_transacoes_raw_name}",
                 ]
             )
         )
