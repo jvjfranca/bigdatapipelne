@@ -264,6 +264,7 @@ class DdkApplicationStack(BaseStack):
             id=crw_transacoes_raw_name,
             name=crw_transacoes_raw_name,
             role=glue_role.role_name,
+            database_name=database_name,
             targets=cdk_glue.CfnCrawler.TargetsProperty(
                 s3_targets=[
                     cdk_glue.CfnCrawler.S3TargetProperty(
@@ -294,7 +295,6 @@ class DdkApplicationStack(BaseStack):
             id='transacoes-cartoes',
             environment_id=environment_id,
             job_name=etl_job_name,
-            database_name=database_name,
             crawler_name=crw_transacoes_raw_name,
             job_args={
                 "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
