@@ -15,6 +15,6 @@ class Generator(Construct):
 
         taskdef.add_container(
             'Generator',
-            image = aws_ecs.ContainerImage.from_asset('./generator')
+            image = aws_ecs.ContainerImage.from_asset('./ddk_app/generator')
         )
         aws_ecs.FargateService(self, 'GeneratorService', cluster=cluster, task_definition=taskdef, desired_count=tps)
