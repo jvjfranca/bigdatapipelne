@@ -101,8 +101,7 @@ def gerador_transacoes():
 
 def thread_function(name):
     print("Thread %s: starting", name)
-    session = boto3.Session(profile_name='dev')
-    kinesis_client = session.client('kinesis')
+    kinesis_client = boto3.client('kinesis')
     cliente = KinesisStream(kinesis_client)
     while True:
         cliente.put_record(partition_key=str(uuid.uuid4))
