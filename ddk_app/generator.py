@@ -17,4 +17,11 @@ class Generator(Construct):
             'Generator',
             image = aws_ecs.ContainerImage.from_asset('./ddk_app/generator')
         )
-        aws_ecs.FargateService(self, 'GeneratorService', cluster=cluster, task_definition=taskdef, desired_count=tps)
+        aws_ecs.FargateService(
+            self,
+            'GeneratorService',
+            cluster=cluster,
+            assign_public_ip=True,
+            task_definition=taskdef,
+            desired_count=tps
+        )
