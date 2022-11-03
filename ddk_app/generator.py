@@ -16,6 +16,30 @@ class Generator(Construct):
             managed_policies=[aws_iam.ManagedPolicy.from_aws_managed_policy_name('AmazonKinesisFullAccess')]
         )
 
+        kms_access = aws_iam.Policy(
+            self,
+            id='AcessoBBBankKMS',
+            document=aws_iam.PolicyDocument(
+                assign_sids=False,
+                statements=[
+                    aws_iam.PolicyStatement(
+                        actions=[
+                            "kms:Encrypt*",
+                            "kms:Decrypt*",
+                            "kms:ReEncrypt*",
+                            "kms:GenerateDataKey*",
+                            "kms:Describe*"
+                        ],
+                        resources=[
+                            "*"
+                        ]
+                    )
+                ]
+            )
+        )
+
+        taskrole.attach_inline_policy(kms_access)
+
         cluster = aws_ecs.Cluster(self, 'Cluster')
 
         taskdef = aws_ecs.FargateTaskDefinition(self, 'task-generator', task_role=taskrole)
