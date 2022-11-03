@@ -22,7 +22,8 @@ class Generator(Construct):
 
         taskdef.add_container(
             'Generator',
-            image = aws_ecs.ContainerImage.from_asset('./ddk_app/generator')
+            image = aws_ecs.ContainerImage.from_asset('./ddk_app/generator'),
+            logging=aws_ecs.AwsLogDriver(stream_prefix="Generator", mode=aws_ecs.AwsLogDriverMode.NON_BLOCKING)
         )
         aws_ecs.FargateService(
             self,
@@ -30,5 +31,5 @@ class Generator(Construct):
             cluster=cluster,
             assign_public_ip=True,
             task_definition=taskdef,
-            desired_count=tps
+            desired_count=tps,
         )
