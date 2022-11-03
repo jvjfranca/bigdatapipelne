@@ -1,10 +1,7 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM public.ecr.aws/docker/library/alpine:3.14
+FROM public.ecr.aws/docker/library/python:3.10-slim
 
 ENV PYTHONUNBUFFERED=1
-RUN apk add --update --no-cache python3 && ln -sf python3 /usr/bin/python
-RUN python3 -m ensurepip
-RUN pip3 install --no-cache --upgrade pip setuptools
 
 # Install pip requirements
 COPY requirements.txt .
