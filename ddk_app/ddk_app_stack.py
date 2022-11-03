@@ -345,16 +345,13 @@ class DdkApplicationStack(BaseStack):
                 script=Code.from_asset("etl/transacoes.py"),
                 type=JobType.ETL
             ),
-            role=glue_role,
-
+            role=glue_role
         )
-
-
 
         etl_job_name_spec = "job-transacoes-spec"
         etl_job_spec = GlueFactory.job(
             self,
-            id=f"{id}-job",
+            id=f"{id}-job-spec",
             job_name=etl_job_name_spec,
             environment_id=environment_id,
             executable=JobExecutable.of(
@@ -363,7 +360,7 @@ class DdkApplicationStack(BaseStack):
                 script=Code.from_asset("etl/spec.py"),
                 type=JobType.ETL
             ),
-            role=glue_role,
+            role=glue_role
         )
 
         glue_stage = GlueTransformStage(
@@ -377,25 +374,11 @@ class DdkApplicationStack(BaseStack):
                 "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
             }
         )
-
-
-        glue_stage = GlueTransformStage(
-            self,
-            id='transacoes-cartoes',
-            environment_id=environment_id,
-            job_name=etl_job_name,
-            crawler_name=crw_transacoes_raw_name,
-            job_args={
-                "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
-                "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
-            }
-        )
-
         glue_stage_spec = GlueTransformStage(
             self,
             id='transacoes-cartoes-spec',
             environment_id=environment_id,
-            job_name=etl_job_spec,
+            job_name=etl_job_name_spec,
             crawler_name=crw_transacoes_stage_name,
             job_args={
                 "--S3_SOURCE_PATH": stage_data.arn_for_objects("stage/"),
@@ -406,8 +389,6 @@ class DdkApplicationStack(BaseStack):
         card_data.grant_read(glue_role)
         stage_data.grant_read_write(etl_job)
         spec_data.grant_read_write(etl_job_spec)
-
-
 
         glue_stage.state_machine.role.add_to_policy(
             iam.PolicyStatement(
@@ -432,7 +413,6 @@ class DdkApplicationStack(BaseStack):
                 ]
             )
         )
-
 
         ##### Data Pipeline #####
         (
