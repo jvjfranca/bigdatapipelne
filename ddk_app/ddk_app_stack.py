@@ -419,6 +419,5 @@ class DdkApplicationStack(BaseStack):
             DataPipeline(scope=self, id="transacoes-data-pipeline")
             .add_stage(transacoes_stage)
             .add_stage(glue_stage)
-            .add_stage(transacoes_spec)
             .add_stage(glue_stage_spec)
         )
