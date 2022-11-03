@@ -13,7 +13,7 @@ class Generator(Construct):
             self,
             'taskrole',
             assumed_by=aws_iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-            managed_policies=aws_iam.ManagedPolicy.from_aws_managed_policy_name('arn:aws:iam::aws:policy/AmazonKinesisFullAccess')
+            managed_policies=[aws_iam.ManagedPolicy.from_aws_managed_policy_name('AmazonKinesisFullAccess')]
         )
 
         cluster = aws_ecs.Cluster(self, 'Cluster')
