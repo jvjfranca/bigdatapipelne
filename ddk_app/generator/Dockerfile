@@ -1,15 +1,14 @@
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM public.ecr.aws/docker/library/python:latest
+FROM public.ecr.aws/docker/library/alpine:3.14
 
-# Keeps Python from generating .pyc files in the container
-ENV PYTHONDONTWRITEBYTECODE=1
-
-# Turns off buffering for easier container logging
 ENV PYTHONUNBUFFERED=1
+RUN apk add --update --no-cache python3 && ln -sf python3 /usr/bin/python
+RUN python3 -m ensurepip
+RUN pip3 install --no-cache --upgrade pip setuptools
 
 # Install pip requirements
 COPY requirements.txt .
-RUN python -m pip install -r requirements.txt
+RUN pip3 install -r requirements.txt
 
 WORKDIR /app
 COPY . /app
@@ -20,4 +19,4 @@ RUN adduser -u 5678 --disabled-password --gecos "" appuser && chown -R appuser /
 USER appuser
 
 # During debugging, this entry point will be overridden. For more information, please refer to https://aka.ms/vscode-docker-python-debug
-CMD ["python", "app.py"]
+CMD ["python3", "app.py"]
