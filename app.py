@@ -2,6 +2,7 @@
 import aws_cdk as cdk
 from aws_ddk_core.cicd import CICDPipelineStack
 from ddk_app.ddk_app_stack import DdkApplicationStack
+from ddk_app.generator_stack import GeneratorStack
 from aws_ddk_core.config import Config
 
 
@@ -18,6 +19,7 @@ class ApplicationStage(cdk.Stage):
         super().__init__(
             scope, f"Ddk{environment_id.title()}Application", **kwargs)
         DdkApplicationStack(self, "DataPipeline", environment_id)
+        GeneratorStack(self,'Generator')
 
 
 config = Config()
