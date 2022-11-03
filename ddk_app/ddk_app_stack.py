@@ -129,6 +129,16 @@ class DdkApplicationStack(BaseStack):
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
+        
+        spec_data = s3.bucket(
+            self,
+            "transacoes-spec",
+            environment_id,
+            encryption_key=cmk_key,
+            encryption=BucketEncryption.KMS,
+            removal_policy=RemovalPolicy.DESTROY,
+            event_bridge_enabled=True
+        )
 
         transacoes_stage = S3EventStage(
             self,
@@ -137,6 +147,15 @@ class DdkApplicationStack(BaseStack):
             event_names=["Object Created"],
             bucket_name=card_data.bucket_name,
             key_prefix="raw"
+        )
+
+        transacoes_spec = S3EventStage(
+            self,
+            id="transacoes-spec-capture",
+            environment_id=environment_id,
+            event_names=["Object Created"],
+            bucket_name=stage_data.bucket_name,
+            key_prefix="stage"
         )
 
         ##### Streams #####
@@ -330,6 +349,23 @@ class DdkApplicationStack(BaseStack):
 
         )
 
+
+
+        etl_job_name_spec = "job-transacoes-spec"
+        etl_job_spec = GlueFactory.job(
+            self,
+            id=f"{id}-job",
+            job_name=etl_job_name_spec,
+            environment_id=environment_id,
+            executable=JobExecutable.of(
+                glue_version=GlueVersion.V3_0,
+                language=JobLanguage.PYTHON,
+                script=Code.from_asset("etl/spec.py"),
+                type=JobType.ETL
+            ),
+            role=glue_role,
+        )
+
         glue_stage = GlueTransformStage(
             self,
             id='transacoes-cartoes',
@@ -342,8 +378,36 @@ class DdkApplicationStack(BaseStack):
             }
         )
 
+
+        glue_stage = GlueTransformStage(
+            self,
+            id='transacoes-cartoes',
+            environment_id=environment_id,
+            job_name=etl_job_name,
+            crawler_name=crw_transacoes_raw_name,
+            job_args={
+                "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
+                "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
+            }
+        )
+
+        glue_stage_spec = GlueTransformStage(
+            self,
+            id='transacoes-cartoes-spec',
+            environment_id=environment_id,
+            job_name=etl_job_spec,
+            crawler_name=crw_transacoes_stage_name,
+            job_args={
+                "--S3_SOURCE_PATH": stage_data.arn_for_objects("stage/"),
+                "--S3_TARGET_PATH": spec_data.arn_for_objects("spec/"),
+            }
+        )
+
         card_data.grant_read(glue_role)
         stage_data.grant_read_write(etl_job)
+        spec_data.grant_read_write(etl_job_spec)
+
+
 
         glue_stage.state_machine.role.add_to_policy(
             iam.PolicyStatement(
@@ -357,9 +421,24 @@ class DdkApplicationStack(BaseStack):
             )
         )
 
+        glue_stage_spec.state_machine.role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "glue:StartCrawler",
+                ],
+                resources=[
+                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{crw_transacoes_stage_name}",
+                ]
+            )
+        )
+
+
         ##### Data Pipeline #####
         (
             DataPipeline(scope=self, id="transacoes-data-pipeline")
             .add_stage(transacoes_stage)
             .add_stage(glue_stage)
+            .add_stage(transacoes_spec)
+            .add_stage(glue_stage_spec)
         )

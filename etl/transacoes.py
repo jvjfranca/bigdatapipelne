@@ -1,0 +1,59 @@
+import sys
+from awsglue.transforms import *
+from awsglue.utils import getResolvedOptions
+from pyspark.context import SparkContext
+from awsglue.context import GlueContext
+from awsglue.job import Job
+
+args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+sc = SparkContext()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
+job.init(args["JOB_NAME"], args)
+
+# Script generated for node S3 bucket
+bucket_raw = glueContext.create_dynamic_frame.from_catalog(
+    database="bbbank-database", table_name="raw", transformation_ctx="S3bucket_node1"
+)
+
+# Script generated for node ApplyMapping
+data_conversion = ApplyMapping.apply(
+    frame=bucket_raw,
+    mappings=[
+        ("nome", "string", "nome", "string"),
+        ("cpf", "string", "cpf", "string"),
+        ("valor", "double", "valor", "double"),
+        ("bandeira", "string", "bandeira", "string"),
+        ("numero_cartao", "string", "numero_cartao", "string"),
+        ("cvv", "string", "cvv", "string"),
+        ("exp", "string", "exp", "string"),
+        ("tipo_cartao", "string", "tipo_cartao", "string"),
+        ("cor_cartao", "string", "cor_cartao", "string"),
+        ("tipo_transacao", "string", "tipo_transacao", "string"),
+        ("localizacao.cidade", "string", "localizacao.cidade", "string"),
+        ("localizacao.estado", "string", "localizacao.estado", "string"),
+        ("localizacao.lat", "string", "localizacao.lat", "double"),
+        ("localizacao.lng", "string", "localizacao.lng", "double"),
+        ("horario_transacao", "string", "horario_transacao", "string"),
+        ("estado", "string", "estado", "string"),
+    ],
+    transformation_ctx="data_conversion",
+)
+
+unnested_frame = data_conversion.unnest()
+
+# Script generated for node S3 bucket
+stage_bucket = glueContext.write_dynamic_frame.from_options(
+    frame=unnested_frame,
+    connection_type="s3",
+    format="glueparquet",
+    connection_options={
+        "path": "s3://ddkdevapplication-datapip-transacoesstage4decba48-1nrsyhfgcvodk/stage/",
+        "partitionKeys": ["estado"],
+    },
+    format_options={"compression": "snappy"},
+    transformation_ctx="S3bucket_node3",
+)
+
+job.commit()
