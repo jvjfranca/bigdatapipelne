@@ -38,11 +38,14 @@ from aws_ddk_core.stages import (
 from aws_ddk_core.pipelines import DataPipeline
 from constructs import Construct
 
+from cdk_watchful import Watchful
+
 
 class DdkApplicationStack(BaseStack):
 
     def __init__(self, scope: Construct, id: str, environment_id: str, **kwargs: Any) -> None:
         super().__init__(scope, id, environment_id, **kwargs)
+
 
         ##### KMS #####
 
@@ -421,3 +424,6 @@ class DdkApplicationStack(BaseStack):
             .add_stage(glue_stage)
             .add_stage(glue_stage_spec)
         )
+
+        wf = Watchful(self, 'ddk-watch')
+        wf.watch_scope(self)
