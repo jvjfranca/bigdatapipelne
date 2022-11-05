@@ -6,14 +6,16 @@ from aws_cdk import (
     aws_iam as iam,
     aws_logs as logs,
     RemovalPolicy,
-    Duration
+    Duration,
 )
 from aws_cdk.aws_glue import(
     CfnDatabase,
     CfnCrawler
 )
 from aws_cdk.aws_s3 import(
-    BucketEncryption
+    BucketEncryption,
+    StorageClass,
+    Transition
 )
 from aws_cdk.aws_kinesisfirehose import(
     CfnDeliveryStream
@@ -84,110 +86,158 @@ class DdkApplicationStack(BaseStack):
             ]
         )
 
-        cmk_key = kms.Key(
+        kms_cmk_key = kms.Key(
             self,
             "bbbankkey",
             policy=kms_policy,
             removal_policy=RemovalPolicy.DESTROY
         )
 
-        cmk_key.add_alias('cmk-bbbank')
+        kms_cmk_key.add_alias('cmk-bbbank')
 
         ##### CloudWatch Log Groups #####
 
-        firehose_log = logs.LogGroup(
+        log_firehose = logs.LogGroup(
             self,
             'firehose-log-group',
             log_group_name='firehose-bbbank',
-            encryption_key=cmk_key,
+            encryption_key=kms_cmk_key,
             removal_policy=RemovalPolicy.DESTROY,
             retention=logs.RetentionDays.TWO_WEEKS
         )
 
-        firehose_log.node.add_dependency(cmk_key)
+        log_firehose.node.add_dependency(kms_cmk_key)
 
-        firehose_log.add_stream(
+        log_firehose.add_stream(
             'log-stream-cartoes',
             log_stream_name='cartoes'
         )
 
         ##### S3 Bucketss #####
 
-        card_data = s3.bucket(
+        s3_card_data = s3.bucket(
             self,
             "ddk-bucket",
             environment_id,
-            encryption_key=cmk_key,
+            encryption_key=kms_cmk_key,
             encryption=BucketEncryption.KMS,
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
 
-        stage_data = s3.bucket(
+        s3_stage_data = s3.bucket(
             self,
             "transacoes-stage",
             environment_id,
-            encryption_key=cmk_key,
+            encryption_key=kms_cmk_key,
             encryption=BucketEncryption.KMS,
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
         
-        spec_data = s3.bucket(
+        s3_spec_data = s3.bucket(
             self,
             "transacoes-spec",
             environment_id,
-            encryption_key=cmk_key,
+            encryption_key=kms_cmk_key,
             encryption=BucketEncryption.KMS,
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
 
-        transacoes_stage = S3EventStage(
+        event_transacoes_stage = S3EventStage(
             self,
             id="transacoes-event-capture",
             environment_id=environment_id,
             event_names=["Object Created"],
-            bucket_name=card_data.bucket_name,
+            bucket_name=s3_card_data.bucket_name,
             key_prefix="raw"
         )
 
-        transacoes_spec = S3EventStage(
+        event_transacoes_spec = S3EventStage(
             self,
             id="transacoes-spec-capture",
             environment_id=environment_id,
             event_names=["Object Created"],
-            bucket_name=stage_data.bucket_name,
+            bucket_name=s3_stage_data.bucket_name,
             key_prefix="stage"
+        )
+
+        s3_card_data.add_lifecycle_rule(
+            abort_incomplete_multipart_upload_after=Duration.days(7),
+            enabled=True,
+            transitions=[
+                Transition(
+                    storage_class=StorageClass.INFREQUENT_ACCESS,
+                    transition_after=Duration.days(30)
+                    ),
+                Transition(
+                    storage_class=StorageClass.GLACIER,
+                    transition_after=Duration.days(90)
+                )
+            ]
+            
+        )
+
+        s3_stage_data.add_lifecycle_rule(
+            abort_incomplete_multipart_upload_after=Duration.days(7),
+            enabled=True,
+            transitions=[
+                Transition(
+                    storage_class=StorageClass.INFREQUENT_ACCESS,
+                    transition_after=Duration.days(30)
+                    ),
+                Transition(
+                    storage_class=StorageClass.GLACIER,
+                    transition_after=Duration.days(90)
+                )
+            ]
+            
+        )
+        
+        s3_spec_data.add_lifecycle_rule(
+            abort_incomplete_multipart_upload_after=Duration.days(7),
+            enabled=True,
+            transitions=[
+                Transition(
+                    storage_class=StorageClass.INFREQUENT_ACCESS,
+                    transition_after=Duration.days(30)
+                    ),
+                Transition(
+                    storage_class=StorageClass.GLACIER,
+                    transition_after=Duration.days(90)
+                )
+            ]
+            
         )
 
         ##### Streams #####
 
-        data_stream = dstream.data_stream(
+        stream_data_stream = dstream.data_stream(
             self,
             "card-stream",
             environment_id,
             encryption=aws_kinesis.StreamEncryption.KMS,
-            encryption_key=cmk_key,
+            encryption_key=kms_cmk_key,
             retention_period=Duration.days(1),
             stream_mode=aws_kinesis.StreamMode.ON_DEMAND,
             stream_name="card-stream",
         )
 
-        firehose_role = iam.Role(
+        iam_firehose_role = iam.Role(
             self,
             'bbbank-firehose-role',
             assumed_by=iam.ServicePrincipal('firehose.amazonaws.com'),
             description='role utilizada pelo firehose do bbbank'
         )
 
-        data_stream.grant_read(firehose_role)
-        card_data.grant_read_write(firehose_role)
-        firehose_log.grant_write(firehose_role)
+        stream_data_stream.grant_read(iam_firehose_role)
+        s3_card_data.grant_read_write(iam_firehose_role)
+        log_firehose.grant_write(iam_firehose_role)
 
         firehose_destination = CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
-            bucket_arn=card_data.bucket_arn,
-            role_arn=firehose_role.role_arn,
+            bucket_arn=s3_card_data.bucket_arn,
+            role_arn=iam_firehose_role.role_arn,
             buffering_hints=CfnDeliveryStream.BufferingHintsProperty(
                 interval_in_seconds=300,
                 size_in_m_bs=64
@@ -205,7 +255,7 @@ class DdkApplicationStack(BaseStack):
             ),
             encryption_configuration=CfnDeliveryStream.EncryptionConfigurationProperty(
                 kms_encryption_config=CfnDeliveryStream.KMSEncryptionConfigProperty(
-                    awskms_key_arn=cmk_key.key_arn
+                    awskms_key_arn=kms_cmk_key.key_arn
                 )
             ),
             error_output_prefix="error/",
@@ -241,8 +291,8 @@ class DdkApplicationStack(BaseStack):
         )
 
         firehose_source = CfnDeliveryStream.KinesisStreamSourceConfigurationProperty(
-            kinesis_stream_arn=data_stream.stream_arn,
-            role_arn=firehose_role.role_arn
+            kinesis_stream_arn=stream_data_stream.stream_arn,
+            role_arn=iam_firehose_role.role_arn
         )
 
         delivery_stream = CfnDeliveryStream(
@@ -253,11 +303,11 @@ class DdkApplicationStack(BaseStack):
             kinesis_stream_source_configuration=firehose_source
         )
 
-        delivery_stream.node.add_dependency(firehose_log)
+        delivery_stream.node.add_dependency(log_firehose)
 
         ##### Glue #####
 
-        glue_role = iam.Role(
+        iam_glue_role = iam.Role(
             self,
             'bbbank-glue-role',
             assumed_by=iam.ServicePrincipal('glue.amazonaws.com'),
@@ -269,7 +319,7 @@ class DdkApplicationStack(BaseStack):
             ]
         )
 
-        glue_kms_access = iam.Policy(
+        iam_policy_glue_kms_access = iam.Policy(
             self,
             id='AcessoBBBankKMS',
             document=iam.PolicyDocument(
@@ -284,63 +334,63 @@ class DdkApplicationStack(BaseStack):
                             "kms:Describe*"
                         ],
                         resources=[
-                            cmk_key.key_arn
+                            kms_cmk_key.key_arn
                         ]
                     )
                 ]
             )
         )
 
-        glue_role.attach_inline_policy(glue_kms_access)
+        iam_glue_role.attach_inline_policy(iam_policy_glue_kms_access)
 
-        database_name = 'bbbank-database'
+        glue_database_name = 'bbbank-database'
         CfnDatabase(
             self,
-            database_name,
+            glue_database_name,
             catalog_id=self.account,
             database_input=CfnDatabase.DatabaseInputProperty(
                 description='bbbank database',
-                name=database_name
+                name=glue_database_name
             )
         )
 
-        crw_transacoes_raw_name = 'crw-transacoes-raw'
+        glue_crw_transacoes_raw_name = 'crw-transacoes-raw'
         CfnCrawler(
             self,
-            id=crw_transacoes_raw_name,
-            name=crw_transacoes_raw_name,
-            role=glue_role.role_name,
-            database_name=database_name,
+            id=glue_crw_transacoes_raw_name,
+            name=glue_crw_transacoes_raw_name,
+            role=iam_glue_role.role_name,
+            database_name=glue_database_name,
             targets=CfnCrawler.TargetsProperty(
                 s3_targets=[
                     CfnCrawler.S3TargetProperty(
-                        path=f"s3://{card_data.bucket_name}/raw/"
+                        path=f"s3://{s3_card_data.bucket_name}/raw/"
                     )
                 ]
             )
         )
         
-        crw_transacoes_stage_name = 'crw-transacoes-stage'
+        glue_crw_transacoes_stage_name = 'crw-transacoes-stage'
         CfnCrawler(
             self,
-            id=crw_transacoes_stage_name,
-            name=crw_transacoes_stage_name,
-            role=glue_role.role_name,
-            database_name=database_name,
+            id=glue_crw_transacoes_stage_name,
+            name=glue_crw_transacoes_stage_name,
+            role=iam_glue_role.role_name,
+            database_name=glue_database_name,
             targets=CfnCrawler.TargetsProperty(
                 s3_targets=[
                     CfnCrawler.S3TargetProperty(
-                        path=f"s3://{stage_data.bucket_name}/stage/"
+                        path=f"s3://{s3_stage_data.bucket_name}/stage/"
                     )
                 ]
             )
         )
         
-        etl_job_name = "job-transacoes-stage"
-        etl_job = GlueFactory.job(
+        glue_etl_job_name = "job-transacoes-stage"
+        glue_etl_job = GlueFactory.job(
             self,
             id=f"{id}-job",
-            job_name=etl_job_name,
+            job_name=glue_etl_job_name,
             environment_id=environment_id,
             executable=JobExecutable.of(
                 glue_version=GlueVersion.V3_0,
@@ -348,14 +398,14 @@ class DdkApplicationStack(BaseStack):
                 script=Code.from_asset("etl/transacoes.py"),
                 type=JobType.ETL
             ),
-            role=glue_role
+            role=iam_glue_role
         )
 
-        etl_job_name_spec = "job-transacoes-spec"
-        etl_job_spec = GlueFactory.job(
+        glue_etl_job_name_spec = "job-transacoes-spec"
+        glue_etl_job_spec = GlueFactory.job(
             self,
             id=f"{id}-job-spec",
-            job_name=etl_job_name_spec,
+            job_name=glue_etl_job_name_spec,
             environment_id=environment_id,
             executable=JobExecutable.of(
                 glue_version=GlueVersion.V3_0,
@@ -363,35 +413,35 @@ class DdkApplicationStack(BaseStack):
                 script=Code.from_asset("etl/spec.py"),
                 type=JobType.ETL
             ),
-            role=glue_role
+            role=iam_glue_role
         )
 
         glue_stage = GlueTransformStage(
             self,
             id='transacoes-cartoes',
             environment_id=environment_id,
-            job_name=etl_job_name,
-            crawler_name=crw_transacoes_raw_name,
+            job_name=glue_etl_job_name,
+            crawler_name=glue_crw_transacoes_raw_name,
             job_args={
-                "--S3_SOURCE_PATH": card_data.arn_for_objects("raw/"),
-                "--S3_TARGET_PATH": stage_data.arn_for_objects("stage/"),
+                "--S3_SOURCE_PATH": s3_card_data.arn_for_objects("raw/"),
+                "--S3_TARGET_PATH": s3_stage_data.arn_for_objects("stage/"),
             }
         )
         glue_stage_spec = GlueTransformStage(
             self,
             id='transacoes-cartoes-spec',
             environment_id=environment_id,
-            job_name=etl_job_name_spec,
-            crawler_name=crw_transacoes_stage_name,
+            job_name=glue_etl_job_name_spec,
+            crawler_name=glue_crw_transacoes_stage_name,
             job_args={
-                "--S3_SOURCE_PATH": stage_data.arn_for_objects("stage/"),
-                "--S3_TARGET_PATH": spec_data.arn_for_objects("spec/"),
+                "--S3_SOURCE_PATH": s3_stage_data.arn_for_objects("stage/"),
+                "--S3_TARGET_PATH": s3_spec_data.arn_for_objects("spec/"),
             }
         )
 
-        card_data.grant_read(glue_role)
-        stage_data.grant_read_write(etl_job)
-        spec_data.grant_read_write(etl_job_spec)
+        s3_card_data.grant_read(iam_glue_role)
+        s3_stage_data.grant_read_write(glue_etl_job)
+        s3_spec_data.grant_read_write(glue_etl_job_spec)
 
         glue_stage.state_machine.role.add_to_policy(
             iam.PolicyStatement(
@@ -400,7 +450,7 @@ class DdkApplicationStack(BaseStack):
                     "glue:StartCrawler",
                 ],
                 resources=[
-                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{crw_transacoes_raw_name}",
+                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{glue_crw_transacoes_raw_name}",
                 ]
             )
         )
@@ -412,7 +462,7 @@ class DdkApplicationStack(BaseStack):
                     "glue:StartCrawler",
                 ],
                 resources=[
-                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{crw_transacoes_stage_name}",
+                    f"arn:aws:glue:{self.region}:{self.account}:crawler/{glue_crw_transacoes_stage_name}",
                 ]
             )
         )
@@ -420,7 +470,7 @@ class DdkApplicationStack(BaseStack):
         ##### Data Pipeline #####
         (
             DataPipeline(scope=self, id="transacoes-data-pipeline")
-            .add_stage(transacoes_stage)
+            .add_stage(event_transacoes_stage)
             .add_stage(glue_stage)
             .add_stage(glue_stage_spec)
         )
