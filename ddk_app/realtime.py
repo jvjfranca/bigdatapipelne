@@ -9,7 +9,7 @@ from aws_cdk import (
     Duration,
     RemovalPolicy,
     aws_lambda_event_sources as event_source,
-    # aws_kinesisanalytics_flink_alpha as flink,
+    aws_kinesisanalytics_flink_alpha as flink,
 )
 
 from aws_ddk_core.resources import (
@@ -26,13 +26,13 @@ class RealTimeAnalytics(Construct):
 
         ##### Realtime ###########
 
-        # flink_app = flink.Application(
-        #     self,
-        #     'realtime-transaction',
-        #     runtime=flink.Runtime.FLINK_1_13,
-        #     application_name='transcations-realtime-analytics',
-        #     code=flink.ApplicationCode.from_asset('flink')
-        # )
+        flink_app = flink.Application(
+            self,
+            'realtime-transaction',
+            runtime=flink.Runtime.FLINK_1_13,
+            application_name='transcations-realtime-analytics',
+            code=flink.ApplicationCode.from_asset('flink')
+        )
         stream_realtime = dstream.data_stream(
             self,
             "realtime-stream",
