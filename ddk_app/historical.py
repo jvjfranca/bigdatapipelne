@@ -220,7 +220,7 @@ class HistoricalAnalytics(Construct):
                 )
             ),
             error_output_prefix="error/",
-            prefix="raw/estado=!{partitionKeyFromQuery:localizacao.estado}/",
+            prefix="raw/estado=!{partitionKeyFromQuery:estado}/",
             processing_configuration=CfnDeliveryStream.ProcessingConfigurationProperty(
                 enabled=True,
                 processors=[
