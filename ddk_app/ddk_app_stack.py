@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_logs as logs,
     aws_lambda as aws_lmbd,
     aws_dynamodb as ddb,
+    aws_lambda_event_sources as event_source,
     aws_apigateway,
     RemovalPolicy,
     Duration,
@@ -506,6 +507,13 @@ class DdkApplicationStack(BaseStack):
             function_name='realtime-consumer'   
         )
 
+        lmb_consumer_event_source = event_source.KinesisEventSource(
+            stream_realtime,
+            starting_position=aws_lmbd.StartingPosition.TRIM_HORIZON
+        )
+
+        lmb_consumer.add_event_source(lmb_consumer_event_source)
+
         stream_realtime.grant_read(lmb_consumer)
 
         ddb_realtime_table = ddb.Table(
@@ -538,5 +546,5 @@ class DdkApplicationStack(BaseStack):
         api_gateway = aws_apigateway.LambdaRestApi(
             self,
             id='bbbank-api',
-            handler=lmb_api
+            handler=lmb_api, 
         )
