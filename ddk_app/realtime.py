@@ -26,13 +26,13 @@ class RealTimeAnalytics(Construct):
 
         ##### Realtime ###########
 
-        flink_app = flink.Application(
-            self,
-            'realtime-transaction',
-            runtime=flink.Runtime.FLINK_1_13,
-            application_name='transcations-realtime-analytics',
-            code=flink.ApplicationCode.from_asset('flink')
-        )
+        # flink_app = flink.Application(
+        #     self,
+        #     'realtime-transaction',
+        #     runtime=flink.Runtime.FLINK_1_13,
+        #     application_name='transcations-realtime-analytics',
+        #     code=flink.ApplicationCode.from_asset('flink')
+        # )
         stream_realtime = dstream.data_stream(
             self,
             "realtime-stream",
