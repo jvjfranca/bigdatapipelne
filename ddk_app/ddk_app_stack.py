@@ -8,7 +8,7 @@ from aws_cdk import (
     aws_lambda as lambda__,
     aws_dynamodb as ddb,
     aws_lambda_event_sources as event_source,
-    aws_kinesisanalytics_flink_alpha as flink,
+    # aws_kinesisanalytics_flink_alpha as flink,
     aws_apigateway,
     RemovalPolicy,
     Duration,
@@ -486,13 +486,13 @@ class DdkApplicationStack(BaseStack):
 
         ##### Realtime ###########
 
-        flink_app = flink.Application(
-            self,
-            'realtime-transaction',
-            runtime=flink.Runtime.FLINK_1_13,
-            application_name='transcations-realtime-analytics',
-            code=flink.ApplicationCode.from_asset('flink')
-        )
+        # flink_app = flink.Application(
+        #     self,
+        #     'realtime-transaction',
+        #     runtime=flink.Runtime.FLINK_1_13,
+        #     application_name='transcations-realtime-analytics',
+        #     code=flink.ApplicationCode.from_asset('flink')
+        # )
         stream_realtime = dstream.data_stream(
             self,
             "realtime-stream",
