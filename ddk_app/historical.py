@@ -230,7 +230,7 @@ class HistoricalAnalytics(Construct):
                         parameters=[
                                 CfnDeliveryStream.ProcessorParameterProperty(
                                     parameter_name="MetadataExtractionQuery",
-                                    parameter_value="{uf:.localizacao.uf}"
+                                    parameter_value="{estado:.localizacao.estado}"
                                 ),
                             CfnDeliveryStream.ProcessorParameterProperty(
                                     parameter_name="JsonParsingEngine",
