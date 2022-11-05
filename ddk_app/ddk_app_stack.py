@@ -5,9 +5,10 @@ from aws_cdk import (
     aws_kms as kms,
     aws_iam as iam,
     aws_logs as logs,
-    aws_lambda as aws_lmbd,
+    aws_lambda as lambda__,
     aws_dynamodb as ddb,
     aws_lambda_event_sources as event_source,
+    aws_kinesisanalytics_flink_alpha as flink,
     aws_apigateway,
     RemovalPolicy,
     Duration,
@@ -44,7 +45,6 @@ from aws_ddk_core.stages import (
 )
 from aws_ddk_core.pipelines import DataPipeline
 from constructs import Construct
-
 from cdk_watchful import Watchful
 
 
@@ -486,6 +486,13 @@ class DdkApplicationStack(BaseStack):
 
         ##### Realtime ###########
 
+        flink_app = flink.Application(
+            self,
+            'realtime-transaction',
+            runtime=flink.Runtime.FLINK_1_13,
+            application_name='transcations-realtime-analytics',
+            code=flink.ApplicationCode.from_asset('flink')
+        )
         stream_realtime = dstream.data_stream(
             self,
             "realtime-stream",
@@ -500,6 +507,7 @@ class DdkApplicationStack(BaseStack):
         ddb_realtime_table = ddb.Table(
             self,
             id='realtime-table',
+            table_name='transacoes-suspeitas',
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=kms_cmk_key,
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
@@ -514,21 +522,20 @@ class DdkApplicationStack(BaseStack):
             self,
             'lmbd-consumer',
             environment_id=environment_id,
-            code=aws_lmbd.Code.from_asset('lambda/consumer'),
+            code=lambda__.Code.from_asset('lambda/consumer'),
             handler='function.handler',
-            runtime=aws_lmbd.Runtime.PYTHON_3_9,
+            runtime=lambda__.Runtime.PYTHON_3_9,
             function_name='realtime-consumer',
-            environment={
-                'TABLE': ddb_realtime_table._physical_name
-            }
         )
 
         lmb_consumer_event_source = event_source.KinesisEventSource(
             stream_realtime,
-            starting_position=aws_lmbd.StartingPosition.TRIM_HORIZON
+            starting_position=lambda__.StartingPosition.TRIM_HORIZON
         )
 
         lmb_consumer.add_event_source(lmb_consumer_event_source)
+
+        lmb_consumer.add_environment('TABLE', 'transacoes-suspeitas')
 
         stream_realtime.grant_read(lmb_consumer)
 
@@ -539,9 +546,9 @@ class DdkApplicationStack(BaseStack):
             self,
             'lmbd-api',
             environment_id=environment_id,
-            code=aws_lmbd.Code.from_asset('lambda/api'),
+            code=lambda__.Code.from_asset('lambda/api'),
             handler='function.handler',
-            runtime=aws_lmbd.Runtime.PYTHON_3_9,
+            runtime=lambda__.Runtime.PYTHON_3_9,
             function_name='api-backend'
         )
 
