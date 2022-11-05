@@ -5,6 +5,9 @@ from aws_cdk import (
     aws_kms as kms,
     aws_iam as iam,
     aws_logs as logs,
+    aws_lambda as aws_lmbd,
+    aws_dynamodb as ddb,
+    aws_apigateway,
     RemovalPolicy,
     Duration,
 )
@@ -29,6 +32,7 @@ from aws_cdk.aws_glue_alpha import (
 )
 from aws_ddk_core.base import BaseStack
 from aws_ddk_core.resources import (
+    LambdaFactory,
     S3Factory as s3,
     KinesisStreamsFactory as dstream,
     GlueFactory
@@ -194,7 +198,7 @@ class DdkApplicationStack(BaseStack):
             ]
             
         )
-        
+
         s3_spec_data.add_lifecycle_rule(
             abort_incomplete_multipart_upload_after=Duration.days(7),
             enabled=True,
@@ -477,3 +481,62 @@ class DdkApplicationStack(BaseStack):
 
         wf = Watchful(self, 'ddk-watch')
         wf.watch_scope(self)
+
+
+        ##### Realtime ###########
+
+        stream_realtime = dstream.data_stream(
+            self,
+            "realtime-stream",
+            environment_id,
+            encryption=aws_kinesis.StreamEncryption.KMS,
+            encryption_key=kms_cmk_key,
+            retention_period=Duration.days(1),
+            stream_mode=aws_kinesis.StreamMode.ON_DEMAND,
+            stream_name="realtime-stream"
+        )
+
+        lmb_consumer = LambdaFactory.function(
+            self,
+            'lmbd-consumer',
+            environment_id=environment_id,
+            code=aws_lmbd.Code.from_asset('lambda/consumer'),
+            handler='function.handler',
+            runtime=aws_lmbd.Runtime.PYTHON_3_9,
+            function_name='realtime-consumer'   
+        )
+
+        stream_realtime.grant_read(lmb_consumer)
+
+        ddb_realtime_table = ddb.Table(
+            self,
+            id='realtime-table',
+            encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
+            encryption_key=kms_cmk_key,
+            billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery=True,
+            removal_policy=RemovalPolicy.DESTROY,
+            time_to_live_attribute='TTL',
+            partition_key=ddb.Attribute(name='CardHolder', type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name='CardNumber', type=ddb.AttributeType.STRING)
+        )
+
+        ddb_realtime_table.grant_write_data(lmb_consumer)
+
+        lmb_api = LambdaFactory.function(
+            self,
+            'lmbd-api',
+            environment_id=environment_id,
+            code=aws_lmbd.Code.from_asset('lambda/api'),
+            handler='function.handler',
+            runtime=aws_lmbd.Runtime.PYTHON_3_9,
+            function_name='api-backend'
+        )
+
+        ddb_realtime_table.grant_read_data(lmb_api)
+
+        api_gateway = aws_apigateway.LambdaRestApi(
+            self,
+            id='bbbank-api',
+            handler=lmb_api
+        )
