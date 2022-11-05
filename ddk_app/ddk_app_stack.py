@@ -497,25 +497,6 @@ class DdkApplicationStack(BaseStack):
             stream_name="realtime-stream"
         )
 
-        lmb_consumer = LambdaFactory.function(
-            self,
-            'lmbd-consumer',
-            environment_id=environment_id,
-            code=aws_lmbd.Code.from_asset('lambda/consumer'),
-            handler='function.handler',
-            runtime=aws_lmbd.Runtime.PYTHON_3_9,
-            function_name='realtime-consumer'   
-        )
-
-        lmb_consumer_event_source = event_source.KinesisEventSource(
-            stream_realtime,
-            starting_position=aws_lmbd.StartingPosition.TRIM_HORIZON
-        )
-
-        lmb_consumer.add_event_source(lmb_consumer_event_source)
-
-        stream_realtime.grant_read(lmb_consumer)
-
         ddb_realtime_table = ddb.Table(
             self,
             id='realtime-table',
@@ -528,6 +509,29 @@ class DdkApplicationStack(BaseStack):
             partition_key=ddb.Attribute(name='CardHolder', type=ddb.AttributeType.STRING),
             sort_key=ddb.Attribute(name='CardNumber', type=ddb.AttributeType.STRING)
         )
+
+        lmb_consumer = LambdaFactory.function(
+            self,
+            'lmbd-consumer',
+            environment_id=environment_id,
+            code=aws_lmbd.Code.from_asset('lambda/consumer'),
+            handler='function.handler',
+            runtime=aws_lmbd.Runtime.PYTHON_3_9,
+            function_name='realtime-consumer',
+            environment={
+                'TABLE': ddb_realtime_table._physical_name
+            }
+        )
+
+        lmb_consumer_event_source = event_source.KinesisEventSource(
+            stream_realtime,
+            starting_position=aws_lmbd.StartingPosition.TRIM_HORIZON
+        )
+
+        lmb_consumer.add_event_source(lmb_consumer_event_source)
+
+        stream_realtime.grant_read(lmb_consumer)
+
 
         ddb_realtime_table.grant_write_data(lmb_consumer)
 
