@@ -408,8 +408,7 @@ class HistoricalAnalytics(Construct):
             crawler_name=glue_crw_transacoes_stage_name,
             job_args={
                 "--S3_SOURCE_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
-                "--S3_TARGET_PATH": f"s3://{s3_spec_data.bucket_name}/spec/",
-                "--job-bookmark-option": "job-bookmark-enable"
+                "--S3_TARGET_PATH": f"s3://{s3_spec_data.bucket_name}/spec/"
             }
         )
 
