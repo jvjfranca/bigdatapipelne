@@ -97,7 +97,7 @@ class HistoricalAnalytics(Construct):
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
-        Tags.of(s3_card_data).add('Name', 'card-stage-data')
+        Tags.of(s3_stage_data).add('Name', 'card-stage-data')
         
         s3_spec_data = s3.bucket(
             self,
@@ -108,7 +108,7 @@ class HistoricalAnalytics(Construct):
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
-        Tags.of(s3_card_data).add('Name', 'card-spec-data')
+        Tags.of(s3_spec_data).add('Name', 'card-spec-data')
 
         event_transacoes_stage = S3EventStage(
             self,
