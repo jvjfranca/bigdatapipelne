@@ -6,6 +6,7 @@ from aws_cdk import (
     aws_logs as logs,
     RemovalPolicy,
     Duration,
+    Tags
 )
 from aws_cdk.aws_glue import(
     CfnDatabase,
@@ -83,8 +84,9 @@ class HistoricalAnalytics(Construct):
             encryption_key=kms_cmk_key,
             encryption=BucketEncryption.KMS,
             removal_policy=RemovalPolicy.DESTROY,
-            event_bridge_enabled=True
+            event_bridge_enabled=True,
         )
+        Tags.of(s3_card_data).add('Name', 'card-raw-data')
 
         s3_stage_data = s3.bucket(
             self,
@@ -95,6 +97,7 @@ class HistoricalAnalytics(Construct):
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
+        Tags.of(s3_card_data).add('Name', 'card-stage-data')
         
         s3_spec_data = s3.bucket(
             self,
@@ -105,6 +108,7 @@ class HistoricalAnalytics(Construct):
             removal_policy=RemovalPolicy.DESTROY,
             event_bridge_enabled=True
         )
+        Tags.of(s3_card_data).add('Name', 'card-spec-data')
 
         event_transacoes_stage = S3EventStage(
             self,
@@ -196,12 +200,13 @@ class HistoricalAnalytics(Construct):
         s3_card_data.grant_read_write(iam_firehose_role)
         log_firehose.grant_write(iam_firehose_role)
 
+        
         firehose_destination = CfnDeliveryStream.ExtendedS3DestinationConfigurationProperty(
             bucket_arn=s3_card_data.bucket_arn,
             role_arn=iam_firehose_role.role_arn,
             buffering_hints=CfnDeliveryStream.BufferingHintsProperty(
-                interval_in_seconds=300,
-                size_in_m_bs=64
+                interval_in_seconds=900,
+                size_in_m_bs=128
             ),
             cloud_watch_logging_options=CfnDeliveryStream.CloudWatchLoggingOptionsProperty(
                 enabled=True,
