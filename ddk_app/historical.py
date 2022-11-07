@@ -364,7 +364,7 @@ class HistoricalAnalytics(Construct):
                 script=Code.from_asset("etl/transacoes.py"),
                 type=JobType.ETL
             ),
-            role=iam_glue_role
+            role=iam_glue_role,
         )
 
         glue_etl_job_name_spec = "job-transacoes-spec"
@@ -391,6 +391,7 @@ class HistoricalAnalytics(Construct):
             job_args={
                 "--S3_SOURCE_PATH": f"s3://{s3_card_data.bucket_name}/raw/",
                 "--S3_TARGET_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
+                "--job-bookmark-option": "job-bookmark-enable"
             }
         )
         glue_stage_spec = GlueTransformStage(
@@ -402,6 +403,7 @@ class HistoricalAnalytics(Construct):
             job_args={
                 "--S3_SOURCE_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
                 "--S3_TARGET_PATH": f"s3://{s3_spec_data.bucket_name}/spec/",
+                "--job-bookmark-option": "job-bookmark-enable"
             }
         )
 
