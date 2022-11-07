@@ -353,6 +353,11 @@ class HistoricalAnalytics(Construct):
         )
         
         glue_etl_job_name = "job-transacoes-stage"
+        default_arguments = {
+            "default_arguments": {
+                "--job-bookmark-option": "job-bookmark-enable"
+            }
+        }
         glue_etl_job = GlueFactory.job(
             self,
             id=f"{id}-job",
@@ -365,6 +370,7 @@ class HistoricalAnalytics(Construct):
                 type=JobType.ETL
             ),
             role=iam_glue_role,
+            **default_arguments
         )
 
         glue_etl_job_name_spec = "job-transacoes-spec"
@@ -379,7 +385,8 @@ class HistoricalAnalytics(Construct):
                 script=Code.from_asset("etl/spec.py"),
                 type=JobType.ETL
             ),
-            role=iam_glue_role
+            role=iam_glue_role,
+            **default_arguments
         )
 
         glue_stage = GlueTransformStage(
@@ -391,7 +398,6 @@ class HistoricalAnalytics(Construct):
             job_args={
                 "--S3_SOURCE_PATH": f"s3://{s3_card_data.bucket_name}/raw/",
                 "--S3_TARGET_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
-                "--job-bookmark-option": "job-bookmark-enable"
             }
         )
         glue_stage_spec = GlueTransformStage(
