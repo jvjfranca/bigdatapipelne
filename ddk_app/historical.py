@@ -389,8 +389,8 @@ class HistoricalAnalytics(Construct):
             job_name=glue_etl_job_name,
             crawler_name=glue_crw_transacoes_raw_name,
             job_args={
-                "--S3_SOURCE_PATH": s3_card_data.arn_for_objects("raw/"),
-                "--S3_TARGET_PATH": s3_stage_data.arn_for_objects("stage/"),
+                "--S3_SOURCE_PATH": f"s3://{s3_card_data.bucket_name}/raw/",
+                "--S3_TARGET_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
             }
         )
         glue_stage_spec = GlueTransformStage(
@@ -400,8 +400,8 @@ class HistoricalAnalytics(Construct):
             job_name=glue_etl_job_name_spec,
             crawler_name=glue_crw_transacoes_stage_name,
             job_args={
-                "--S3_SOURCE_PATH": s3_stage_data.arn_for_objects("stage/"),
-                "--S3_TARGET_PATH": s3_spec_data.arn_for_objects("spec/"),
+                "--S3_SOURCE_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
+                "--S3_TARGET_PATH": f"s3://{s3_spec_data_.bucket_name}/spec/",
             }
         )
 

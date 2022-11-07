@@ -5,7 +5,12 @@ from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
 
-args = getResolvedOptions(sys.argv, ["JOB_NAME"])
+args = getResolvedOptions(
+    sys.argv, [
+        "JOB_NAME",
+        "S3_SOURCE_PATH",
+        "S3_TARGET_PATH"
+    ])
 sc = SparkContext()
 glueContext = GlueContext(sc)
 spark = glueContext.spark_session
@@ -49,7 +54,7 @@ stage_bucket = glueContext.write_dynamic_frame.from_options(
     connection_type="s3",
     format="glueparquet",
     connection_options={
-        "path": "s3://ddkdevapplication-datapip-transacoesstage4decba48-1nrsyhfgcvodk/stage/",
+        "path": f"{args['S3_TARGET_PATH']}",
         "partitionKeys": ["estado"],
     },
     format_options={"compression": "snappy"},
