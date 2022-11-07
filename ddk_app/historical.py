@@ -353,9 +353,11 @@ class HistoricalAnalytics(Construct):
         )
         
         glue_etl_job_name = "job-transacoes-stage"
-        default_arguments = {
+        stage_arguments = {
             "default_arguments": {
-                "--job-bookmark-option": "job-bookmark-enable"
+                "--job-bookmark-option": "job-bookmark-enable",
+                "--S3_SOURCE_PATH": f"s3://{s3_card_data.bucket_name}/raw/",
+                "--S3_TARGET_PATH": f"s3://{s3_stage_data.bucket_name}/stage/"
             }
         }
         glue_etl_job = GlueFactory.job(
@@ -370,10 +372,17 @@ class HistoricalAnalytics(Construct):
                 type=JobType.ETL
             ),
             role=iam_glue_role,
-            **default_arguments
+            **stage_arguments
         )
 
         glue_etl_job_name_spec = "job-transacoes-spec"
+        spec_arguments = {
+            "default_arguments": {
+                "--job-bookmark-option": "job-bookmark-enable",
+                "--S3_SOURCE_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
+                "--S3_TARGET_PATH": f"s3://{s3_spec_data.bucket_name}/spec/"
+            }
+        }
         glue_etl_job_spec = GlueFactory.job(
             self,
             id=f"{id}-job-spec",
@@ -386,7 +395,7 @@ class HistoricalAnalytics(Construct):
                 type=JobType.ETL
             ),
             role=iam_glue_role,
-            **default_arguments
+            **spec_arguments
         )
 
         glue_stage = GlueTransformStage(
@@ -394,22 +403,14 @@ class HistoricalAnalytics(Construct):
             id='transacoes-cartoes',
             environment_id=environment_id,
             job_name=glue_etl_job_name,
-            crawler_name=glue_crw_transacoes_raw_name,
-            job_args={
-                "--S3_SOURCE_PATH": f"s3://{s3_card_data.bucket_name}/raw/",
-                "--S3_TARGET_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
-            }
+            crawler_name=glue_crw_transacoes_raw_name
         )
         glue_stage_spec = GlueTransformStage(
             self,
             id='transacoes-cartoes-spec',
             environment_id=environment_id,
             job_name=glue_etl_job_name_spec,
-            crawler_name=glue_crw_transacoes_stage_name,
-            job_args={
-                "--S3_SOURCE_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
-                "--S3_TARGET_PATH": f"s3://{s3_spec_data.bucket_name}/spec/"
-            }
+            crawler_name=glue_crw_transacoes_stage_name
         )
 
         s3_card_data.grant_read(iam_glue_role)
