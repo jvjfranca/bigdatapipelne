@@ -8,7 +8,6 @@ from awsglue.job import Job
 args = getResolvedOptions(
     sys.argv, [
         "JOB_NAME",
-        "S3_SOURCE_PATH",
         "S3_TARGET_PATH"
     ])
 sc = SparkContext()
@@ -36,10 +35,10 @@ data_conversion = ApplyMapping.apply(
         ("tipo_cartao", "string", "tipo_cartao", "string"),
         ("cor_cartao", "string", "cor_cartao", "string"),
         ("tipo_transacao", "string", "tipo_transacao", "string"),
-        ("localizacao.cidade", "string", "localizacao.cidade", "string"),
-        ("localizacao.estado", "string", "localizacao.estado", "string"),
-        ("localizacao.lat", "string", "localizacao.lat", "double"),
-        ("localizacao.lng", "string", "localizacao.lng", "double"),
+        ("localizacao.cidade", "string", "cidade", "string"),
+        ("localizacao.estado", "string", "loc-estado", "string"),
+        ("localizacao.lat", "string", "latitude", "double"),
+        ("localizacao.lng", "string", "longitude", "double"),
         ("horario_transacao", "string", "horario_transacao", "string"),
         ("estado", "string", "estado", "string"),
     ],
