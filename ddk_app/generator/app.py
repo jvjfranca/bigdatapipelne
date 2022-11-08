@@ -2,10 +2,12 @@ import boto3
 import json
 import random
 import uuid
+import pytz
 from datetime import datetime
 from faker import Faker
 from geopy.geocoders import Nominatim
 from time import sleep
+
 
 tipo_transacao = [
     'credito',
@@ -75,7 +77,7 @@ def gerador_transacoes():
             'cidade': geo[2],
             'estado': location['state']
         },
-        "horario_transacao": fake.date_time_this_year().strftime("%m/%d/%Y, %H:%M:%S")
+        "horario_transacao": datetime.now(pytz.timezone('America/Sao_Paulo')).isoformat()
     }
     print(f"Transacao enviada: {transacao['valor']}")
     return transacao
