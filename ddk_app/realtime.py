@@ -6,10 +6,15 @@ from aws_cdk import (
     aws_lambda as lambda__,
     aws_dynamodb as ddb,
     aws_apigateway,
+    aws_s3_assets,
+    aws_iam as iam,
     Duration,
     RemovalPolicy,
-    aws_lambda_event_sources as event_source,
-    aws_kinesisanalytics_flink_alpha as flink,
+    aws_lambda_event_sources as event_source
+)
+
+from aws_cdk.aws_kinesisanalyticsv2 import(
+    CfnApplication as KDAApp
 )
 
 from aws_ddk_core.resources import (
@@ -23,16 +28,93 @@ class RealTimeAnalytics(Construct):
 
         super().__init__(scope, id)
 
+        flink_code = aws_s3_assets.Asset(
+            self,
+            'flink-app-code',
+            path='realtime/'
+        )
 
-        ##### Realtime ###########
 
-        # flink_app = flink.Application(
-        #     self,
-        #     'realtime-transaction',
-        #     runtime=flink.Runtime.FLINK_1_13,
-        #     application_name='transcations-realtime-analytics',
-        #     code=flink.ApplicationCode.from_asset('flink')
-        # )
+        flink_role = iam.Role(
+            self,
+            'bbbank-flink-role',
+            assumed_by=iam.ServicePrincipal('kinesisanalytics.amazonaws.com'),
+            description='role utilizada pelo kinesis analytics do bbbank',
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    'AmazonKinesisFullAccess'
+                ),
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    'CloudWatchLogsFullAccess'
+                ),
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    'AmazonS3FullAccess'
+                )
+            ]
+        )
+
+        flink = KDAApp(
+            self, 
+            'realtime-card-analytics',
+            runtime_environment='FLINK-1_13',
+            service_execution_role=flink_role.role_name,
+            application_configuration=KDAApp.ApplicationConfigurationProperty(
+                application_code_configuration=KDAApp.ApplicationCodeConfigurationProperty(
+                    code_content=KDAApp.CodeContentProperty(
+                        s3_content_location=KDAApp.S3ContentLocationProperty(
+                            bucket_arn=flink_code.bucket.bucket_arn,
+                            file_key=flink_code.s3_object_key,
+                        ),
+                    ),
+                    code_content_type="ZIPFILE"
+                ),
+                application_snapshot_configuration=KDAApp.ApplicationSnapshotConfigurationProperty(
+                    snapshots_enabled=True
+                ),
+                environment_properties=KDAApp.EnvironmentPropertiesProperty(
+                    property_groups=[
+                        KDAApp.PropertyGroupProperty(
+                            property_group_id="kinesis.analytics.flink.run.options",
+                            property_map={
+                                "python": "realtime/app.py",
+                                "jarfile": "realtime/lib/flink-sql-connector-kinesis_2.12-1.13.2",
+                            }
+                        ),
+                        KDAApp.PropertyGroupProperty(
+                            property_group_id="consumer.config.0",
+                            property_map={
+                                "input.stream.name": "realtime/app.py",
+                                "flink.stream.initpos": "LATEST",
+                                "aws.region": "us-east-1",
+                            }
+                        ),
+                        KDAApp.PropertyGroupProperty(
+                            property_group_id="producer.config.0",
+                            property_map={
+                                "output.stream.name": "realtime-stream",
+                                "shard.count": "1",
+                                "aws.region": "us-east-1",
+                            }
+                        )
+                    ]
+                ),
+                flink_application_configuration=KDAApp.FlinkApplicationConfigurationProperty(
+                    checkpoint_configuration=KDAApp.CheckpointConfigurationProperty(
+                        configuration_type="DEFAULT",
+                    ),
+                    monitoring_configuration=KDAApp.MonitoringConfigurationProperty(
+                        configuration_type="DEFAULT",
+                        metrics_level="APPLICATION"
+                    ),
+                    parallelism_configuration=KDAApp.ParallelismConfigurationProperty(
+                        configuration_type="DEFAULT",
+                    )
+                ),
+            ),
+            application_description="Realtime Card Transactions Analytics",
+            application_name="realtime-cardtransactions-analytics"
+        )
+
         stream_realtime = dstream.data_stream(
             self,
             "realtime-stream",

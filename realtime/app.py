@@ -36,7 +36,7 @@ def get_application_properties():
             properties = json.loads(contents)
             return properties
     else:
-        print('A file at "{}" was not found'.format(APPLICATION_PROPERTIES_FILE_PATH))
+        print(f'A file at "{APPLICATION_PROPERTIES_FILE_PATH}" was not found')
 
 
 def property_map(props, property_group_id):
@@ -46,7 +46,7 @@ def property_map(props, property_group_id):
 
 
 def create_table(table_name, stream_name, region, stream_initpos):
-    return """ CREATE TABLE {0} (
+    return f""" CREATE TABLE {table_name} (
                 ticker VARCHAR(6),
                 price DOUBLE,
                 event_time TIMESTAMP(3),
@@ -55,16 +55,14 @@ def create_table(table_name, stream_name, region, stream_initpos):
               PARTITIONED BY (ticker)
               WITH (
                 'connector' = 'kinesis',
-                'stream' = '{1}',
-                'aws.region' = '{2}',
-                'scan.stream.initpos' = '{3}',
+                'stream' = '{stream_name}',
+                'aws.region' = '{region}',
+                'scan.stream.initpos' = '{stream_initpos}',
                 'sink.partitioner-field-delimiter' = ';',
                 'sink.producer.collection-max-count' = '100',
                 'format' = 'json',
                 'json.timestamp-format.standard' = 'ISO-8601'
-              ) """.format(
-        table_name, stream_name, region, stream_initpos
-    )
+              ) """
 
 
 def perform_tumbling_window_aggregation(input_table_name):
@@ -127,8 +125,7 @@ def main():
     table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
 
     # 5. These tumbling windows are inserted into the sink table
-    table_result = table_env.execute_sql("INSERT INTO {0} SELECT * FROM {1}"
-                                         .format(output_table_name, "tumbling_window_table"))
+    table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {tumbling_window_table}")
 
 
     print(table_result.get_job_client().get_job_status())
