@@ -368,7 +368,7 @@ class HistoricalAnalytics(Construct):
             executable=JobExecutable.of(
                 glue_version=GlueVersion.V3_0,
                 language=JobLanguage.PYTHON,
-                script=Code.from_asset("etl/transacoes.py"),
+                script=Code.from_asset("etl/stage.py"),
                 type=JobType.ETL
             ),
             role=iam_glue_role,
@@ -379,7 +379,6 @@ class HistoricalAnalytics(Construct):
         spec_arguments = {
             "default_arguments": {
                 "--job-bookmark-option": "job-bookmark-enable",
-                "--S3_SOURCE_PATH": f"s3://{s3_stage_data.bucket_name}/stage/",
                 "--S3_TARGET_PATH": f"s3://{s3_spec_data.bucket_name}/spec/"
             }
         }
