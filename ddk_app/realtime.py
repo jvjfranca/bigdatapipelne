@@ -53,6 +53,31 @@ class RealTimeAnalytics(Construct):
             ]
         )
 
+        
+        kms_access = iam.Policy(
+            self,
+            id='AcessoBBBankKMS',
+            document=iam.PolicyDocument(
+                assign_sids=False,
+                statements=[
+                    iam.PolicyStatement(
+                        actions=[
+                            "kms:Encrypt*",
+                            "kms:Decrypt*",
+                            "kms:ReEncrypt*",
+                            "kms:GenerateDataKey*",
+                            "kms:Describe*"
+                        ],
+                        resources=[
+                            kms_cmk_key.key_arn
+                        ]
+                    )
+                ]
+            )
+        )
+
+        flink_role.attach_inline_policy(kms_access)
+
         flink = KDAApp(
             self, 
             'realtime-analitycs',

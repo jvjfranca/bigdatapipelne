@@ -46,7 +46,8 @@ def property_map(props, property_group_id):
             return prop["PropertyMap"]
 
 
-def create_table(table_name, stream_name, region, stream_initpos):
+def create_table(table_name=None, stream_name=None, region='us-east-1', stream_initpos='LATEST'):
+    print("Criando tabela entrada")
     return f""" CREATE TABLE {table_name} (
                 transaction_id VARCHAR(37),
                 valor DOUBLE,
@@ -112,12 +113,12 @@ def main():
     output_region = output_property_map[output_region_key]
 
     # 2. Creates a source table from a Kinesis Data Stream
-    table_env.execute_sql(
+    input_table = table_env.execute_sql(
         create_table(input_table_name, input_stream, input_region, stream_initpos)
     )
 
     # 3. Creates a sink table writing to a Kinesis Data Stream
-    table_env.execute_sql(
+    temp_table = table_env.execute_sql(
         create_table(output_table_name, output_stream, output_region, stream_initpos)
     )
 
@@ -127,10 +128,15 @@ def main():
     # table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
 
     # 5. These tumbling windows are inserted into the sink table
-    table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
+    sink_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
 
-
-    print(table_result.get_job_client().get_job_status())
+    print('Input Table')
+    print(input_table.get_job_client().get_job_status())
+    print('Temp Table')
+    print(temp_table.get_job_client().get_job_status())
+    print('Sink Table')
+    print(sink_result.get_job_client().get_job_status())
+    # print(table_result.get_job_client().get_job_status())
 
 
 
