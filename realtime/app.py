@@ -68,19 +68,19 @@ def create_table(table_name, stream_name, region, stream_initpos):
               ) """
 
 
-def perform_tumbling_window_aggregation(input_table_name):
-    # use SQL Table in the Table API
-    input_table = table_env.from_path(input_table_name)
+# def perform_tumbling_window_aggregation(input_table_name):
+#     # use SQL Table in the Table API
+#     input_table = table_env.from_path(input_table_name)
 
-    tumbling_window_table = (
-        input_table.window(
-            Tumble.over("10.seconds").on("event_time").alias("ten_second_window")
-        )
-        .group_by("transaction_id, numero_cartao, ten_second_window")
-        .select("transaction_id, numero_cartao , valor, ten_second_window.end as event_time")
-        .filter(col('valor') > float(5000))
-    )
-    return tumbling_window_table
+#     tumbling_window_table = (
+#         input_table.window(
+#             Tumble.over("10.seconds").on("event_time").alias("ten_second_window")
+#         )
+#         .group_by("transaction_id, numero_cartao, ten_second_window")
+#         .select("transaction_id, numero_cartao , valor, ten_second_window.end as event_time")
+#         .filter(col('valor') > float(5000))
+#     )
+#     return tumbling_window_table
 
 def main():
     # Application Property Keys
@@ -123,11 +123,11 @@ def main():
 
     # 4. Queries from the Source Table and creates a tumbling window over 10 seconds to calculate the cumulative price
     # over the window.
-    tumbling_window_table = perform_tumbling_window_aggregation(input_table_name)
-    table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
+    # tumbling_window_table = perform_tumbling_window_aggregation(input_table_name)
+    # table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
 
     # 5. These tumbling windows are inserted into the sink table
-    table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {tumbling_window_table}")
+    table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
 
 
     print(table_result.get_job_client().get_job_status())
