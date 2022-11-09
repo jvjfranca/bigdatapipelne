@@ -104,7 +104,6 @@ class RealTimeAnalytics(Construct):
                     ),
                     monitoring_configuration=KDAApp.MonitoringConfigurationProperty(
                         configuration_type="DEFAULT",
-                        metrics_level="APPLICATION"
                     ),
                     parallelism_configuration=KDAApp.ParallelismConfigurationProperty(
                         configuration_type="DEFAULT",
