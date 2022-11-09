@@ -1,15 +1,15 @@
-from pyflink.table import EnvironmentSettings, StreamTableEnvironment
-from pyflink.table.window import Tumble
-# from pyflink.table.expressions import col
-import os
 import json
+import os
+
+from pyflink.table import EnvironmentSettings, StreamTableEnvironment
+from pyflink.table.expressions import col
+from pyflink.table.window import Tumble
 
 # 1. Creates a Table Environment
 env_settings = (
     EnvironmentSettings.new_instance().in_streaming_mode().use_blink_planner().build()
 )
 table_env = StreamTableEnvironment.create(environment_settings=env_settings)
-statement_set = table_env.create_statement_set()
 
 APPLICATION_PROPERTIES_FILE_PATH = "/etc/flink/application_properties.json"
 
@@ -21,7 +21,7 @@ def get_application_properties():
             properties = json.loads(contents)
             return properties
     else:
-        print(f'A file at "{APPLICATION_PROPERTIES_FILE_PATH}" was not found')
+        print('A file at "{}" was not found'.format(APPLICATION_PROPERTIES_FILE_PATH))
 
 
 def property_map(props, property_group_id):
@@ -29,14 +29,15 @@ def property_map(props, property_group_id):
         if prop["PropertyGroupId"] == property_group_id:
             return prop["PropertyMap"]
 
-def create_table(table_name=None, stream_name=None):
+
+def create_table(table_name, stream_name):
     return f""" CREATE TABLE {table_name} (
                 transaction_id VARCHAR(37),
                 valor DOUBLE,
                 numero_cartao VARCHAR(16),
                 tipo_cartao VARCHAR(16),
                 horario_transacao TIMESTAMP(3),
-                WATERMARK FOR horario_transacao AS horario_transacao - INTERVAL '5' SECOND
+                WATERMARK FOR horario_transacao AS event_time - INTERVAL '2' MINUTES
               )
               PARTITIONED BY (numero_cartao)
               WITH (
@@ -50,31 +51,16 @@ def create_table(table_name=None, stream_name=None):
                 'json.timestamp-format.standard' = 'ISO-8601'
               ) """
 
-def print_table(table_name=None):
-    return f""" CREATE TABLE {table_name} (
-                transaction_id VARCHAR(37),
-                valor DOUBLE,
-                numero_cartao VARCHAR(16),
-                tipo_cartao VARCHAR(16),
-                horario_transacao TIMESTAMP(3),
-                WATERMARK FOR horario_transacao AS horario_transacao - INTERVAL '5' SECOND
-              )
-              PARTITIONED BY (numero_cartao)
-              WITH (
-                'connector' = 'print'
-              ) """
-
-
 def perform_tumbling_window_aggregation(input_table_name):
     # use SQL Table in the Table API
     input_table = table_env.from_path(input_table_name)
 
     tumbling_window_table = (
-        input_table.window(
-            Tumble.over("10.seconds").on("event_time").alias("ten_second_window")
-        )
-        .group_by("transaction_id, numero_cartao, ten_second_window")
-        .select("transaction_id, numero_cartao , valor, ten_second_window.end as event_time")
+        input_table
+        .window(Tumble.over("120.seconds").on("event_time").alias("two_minutes"))
+        .group_by("numero_cartao, two_minutes")
+        .select("transaction_id, numero_cartao , valor.max as valor, two_minutes.end as event_time")
+        .filter(col("valor") > float (5000))
     )
     return tumbling_window_table
 
@@ -108,22 +94,24 @@ def main():
     output_region = output_property_map[output_region_key]
 
     # 2. Creates a source table from a Kinesis Data Stream
-    input_table = table_env.execute_sql(
+    table_env.execute_sql(
         create_table(input_table_name, input_stream)
     )
 
     # 3. Creates a sink table writing to a Kinesis Data Stream
-    # table_env.execute_sql(
-    #     create_table(output_table_name, output_stream)
-    # )
+    table_env.execute_sql(
+        create_table(output_table_name, output_stream)
+    )
 
-    # 4. Queries from the Source Table and creates a tumbling window over 10 seconds to calculate the cumulative price
-    # over the window.
-    tumbling_window_table = perform_tumbling_window_aggregation(input_table_name)
-    table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
+    # # 4. Queries from the Source Table and creates a tumbling window over 10 seconds to calculate the cumulative price
+    # # over the window.
+    # tumbling_window_table = perform_tumbling_window_aggregation(input_table_name)
+    # table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
 
     # # 5. These tumbling windows are inserted into the sink table
-    table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
+    table_result = table_env.execute_sql(
+            f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}"
+        )
 
     print(table_result.get_job_client().get_job_status())
 
