@@ -76,14 +76,14 @@ class RealTimeAnalytics(Construct):
                         KDAApp.PropertyGroupProperty(
                             property_group_id="kinesis.analytics.flink.run.options",
                             property_map={
-                                "python": "realtime/app.py",
-                                "jarfile": "realtime/lib/flink-sql-connector-kinesis_2.12-1.13.2.jar",
+                                "python": "app.py",
+                                "jarfile": "connector.jar",
                             }
                         ),
                         KDAApp.PropertyGroupProperty(
                             property_group_id="consumer.config.0",
                             property_map={
-                                "input.stream.name": "realtime/app.py",
+                                "input.stream.name": "card-stream",
                                 "flink.stream.initpos": "LATEST",
                                 "aws.region": "us-east-1",
                             }

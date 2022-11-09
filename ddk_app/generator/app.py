@@ -77,7 +77,8 @@ def gerador_transacoes():
             'cidade': geo[2],
             'estado': location['state']
         },
-        "horario_transacao": datetime.now(pytz.timezone('America/Sao_Paulo')).isoformat()
+        "horario_transacao": datetime.now(pytz.timezone('America/Sao_Paulo')).isoformat(),
+        "transaction_id": str(uuid.uuid4())
     }
     print(f"Transacao enviada: {transacao['valor']}")
     return transacao
