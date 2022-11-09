@@ -109,27 +109,26 @@ def main():
     output_region = output_property_map[output_region_key]
 
     # 2. Creates a source table from a Kinesis Data Stream
-    table_env.execute_sql(
+    input_table = table_env.execute_sql(
         create_table(input_table_name, input_stream)
     )
 
     # 3. Creates a sink table writing to a Kinesis Data Stream
-    table_env.execute_sql(
-        create_table(output_table_name, output_stream)
-    )
+    # table_env.execute_sql(
+    #     create_table(output_table_name, output_stream)
+    # )
 
     # 4. Queries from the Source Table and creates a tumbling window over 10 seconds to calculate the cumulative price
     # over the window.
     # tumbling_window_table = perform_tumbling_window_aggregation(input_table_name)
     # table_env.create_temporary_view("tumbling_window_table", tumbling_window_table)
 
-    # 5. These tumbling windows are inserted into the sink table
-    table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
+    # # 5. These tumbling windows are inserted into the sink table
+    # table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
 
     # table_result.wait()
-
-    print(table_result.get_job_client().get_job_status())
-
+    result = table_env.execute_sql(f"SELECT * FROM {input_table_name}") 
+    print(result.get_job_client().get_job_status())
 
 if __name__ == "__main__":
     main()
