@@ -55,9 +55,9 @@ class RealTimeAnalytics(Construct):
 
         flink = KDAApp(
             self, 
-            'realtime-card-analytics',
+            'realtime-analitycs',
             runtime_environment='FLINK-1_13',
-            service_execution_role=flink_role.role_name,
+            service_execution_role=flink_role.role_arn,
             application_configuration=KDAApp.ApplicationConfigurationProperty(
                 application_code_configuration=KDAApp.ApplicationCodeConfigurationProperty(
                     code_content=KDAApp.CodeContentProperty(
@@ -111,8 +111,8 @@ class RealTimeAnalytics(Construct):
                     )
                 ),
             ),
-            application_description="Realtime Card Transactions Analytics",
-            application_name="realtime-cardtransactions-analytics"
+            application_description="Realtime",
+            application_name="cardtransactions"
         )
 
         stream_realtime = dstream.data_stream(
