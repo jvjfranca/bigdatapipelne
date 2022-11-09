@@ -16,6 +16,7 @@ This module:
 
 from pyflink.table import EnvironmentSettings, StreamTableEnvironment
 from pyflink.table.window import Tumble
+from pyflink.table.expressions import col
 import os
 import json
 
@@ -49,13 +50,12 @@ def create_table(table_name, stream_name, region, stream_initpos):
     return f""" CREATE TABLE {table_name} (
                 transaction_id VARCHAR(37),
                 valor DOUBLE,
-                bandeira VARCHAR(10),
                 numero_cartao VARCHAR(16),
                 tipo_cartao VARCHAR(16),
                 horario_transacao TIMESTAMP(3),
                 WATERMARK FOR horario_transacao AS horario_transacao - INTERVAL '5' SECOND
               )
-              PARTITIONED BY (bandeira)
+              PARTITIONED BY (numero_cartao)
               WITH (
                 'connector' = 'kinesis',
                 'stream' = '{stream_name}',
@@ -76,11 +76,11 @@ def perform_tumbling_window_aggregation(input_table_name):
         input_table.window(
             Tumble.over("10.seconds").on("event_time").alias("ten_second_window")
         )
-        .group_by("transaction_id, ten_second_window")
-        .select("transaction_id, valor, ten_second_window.end as event_time")
+        .group_by("transaction_id, numero_cartao, ten_second_window")
+        .select("transaction_id, numero_cartao , valor, ten_second_window.end as event_time")
+        .filter(col('valor') > float(5000))
     )
     return tumbling_window_table
-
 
 def main():
     # Application Property Keys
