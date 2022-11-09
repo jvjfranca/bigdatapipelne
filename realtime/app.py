@@ -1,19 +1,3 @@
-# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-# SPDX-License-Identifier: MIT-0
-# -*- coding: utf-8 -*-
-
-"""
-tumbling-windows.py
-~~~~~~~~~~~~~~~~~~~
-This module:
-    1. Creates a table environment
-    2. Creates a source table from a Kinesis Data Stream
-    3. Creates a sink table writing to a Kinesis Data Stream
-    4. Queries from the Source Table and
-       creates a tumbling window over 10 seconds to calculate the cumulative price over the window.
-    5. These tumbling window results are inserted into the Sink table.
-"""
-
 from pyflink.table import EnvironmentSettings, StreamTableEnvironment
 # from pyflink.table.window import Tumble
 # from pyflink.table.expressions import col
@@ -45,9 +29,7 @@ def property_map(props, property_group_id):
         if prop["PropertyGroupId"] == property_group_id:
             return prop["PropertyMap"]
 
-
-def create_table(table_name=None, stream_name=None, region='us-east-1', stream_initpos='LATEST'):
-    print("Criando tabela entrada")
+def create_table(table_name=None, stream_name=None):
     return f""" CREATE TABLE {table_name} (
                 transaction_id VARCHAR(37),
                 valor DOUBLE,
@@ -59,9 +41,9 @@ def create_table(table_name=None, stream_name=None, region='us-east-1', stream_i
               PARTITIONED BY (numero_cartao)
               WITH (
                 'connector' = 'kinesis',
-                'stream' = '{stream_name}',
-                'aws.region' = '{region}',
-                'scan.stream.initpos' = '{stream_initpos}',
+                'stream' = {stream_name},
+                'aws.region' = 'us-east-1',
+                'scan.stream.initpos' = 'LATEST',
                 'sink.partitioner-field-delimiter' = ';',
                 'sink.producer.collection-max-count' = '100',
                 'format' = 'json',
@@ -128,12 +110,12 @@ def main():
 
     # 2. Creates a source table from a Kinesis Data Stream
     table_env.execute_sql(
-        create_table(input_table_name, input_stream, input_region, stream_initpos)
+        create_table(input_table_name, input_stream)
     )
 
     # 3. Creates a sink table writing to a Kinesis Data Stream
     table_env.execute_sql(
-        print_table(output_table_name, output_stream, output_region, stream_initpos)
+        create_table(output_table_name, output_stream)
     )
 
     # 4. Queries from the Source Table and creates a tumbling window over 10 seconds to calculate the cumulative price
@@ -144,10 +126,9 @@ def main():
     # 5. These tumbling windows are inserted into the sink table
     table_result = table_env.execute_sql(f"INSERT INTO {output_table_name} SELECT * FROM {input_table_name}")
 
-    table_result.wait()
+    # table_result.wait()
 
-    # print(table_result.get_job_client().get_job_status())
-
+    print(table_result.get_job_client().get_job_status())
 
 
 if __name__ == "__main__":
