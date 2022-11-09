@@ -47,12 +47,15 @@ def property_map(props, property_group_id):
 
 def create_table(table_name, stream_name, region, stream_initpos):
     return f""" CREATE TABLE {table_name} (
-                ticker VARCHAR(6),
-                price DOUBLE,
-                event_time TIMESTAMP(3),
-                WATERMARK FOR event_time AS event_time - INTERVAL '5' SECOND
+                transaction_id VARCHAR(37),
+                valor DOUBLE,
+                bandeira VARCHAR(10),
+                numero_cartao VARCHAR(16),
+                tipo_cartao VARCHAR(16),
+                horario_transacao TIMESTAMP(3),
+                WATERMARK FOR horario_transacao AS horario_transacao - INTERVAL '5' SECOND
               )
-              PARTITIONED BY (ticker)
+              PARTITIONED BY (bandeira)
               WITH (
                 'connector' = 'kinesis',
                 'stream' = '{stream_name}',
@@ -73,10 +76,9 @@ def perform_tumbling_window_aggregation(input_table_name):
         input_table.window(
             Tumble.over("10.seconds").on("event_time").alias("ten_second_window")
         )
-        .group_by("ticker, ten_second_window")
-        .select("ticker, price.sum as price, ten_second_window.end as event_time")
+        .group_by("transaction_id, ten_second_window")
+        .select("transaction_id, valor, ten_second_window.end as event_time")
     )
-
     return tumbling_window_table
 
 
