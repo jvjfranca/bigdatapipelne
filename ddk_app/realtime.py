@@ -77,7 +77,7 @@ class RealTimeAnalytics(Construct):
                             property_group_id="kinesis.analytics.flink.run.options",
                             property_map={
                                 "python": "realtime/app.py",
-                                "jarfile": "realtime/lib/flink-sql-connector-kinesis_2.12-1.13.2",
+                                "jarfile": "realtime/lib/flink-sql-connector-kinesis_2.12-1.13.2.jar",
                             }
                         ),
                         KDAApp.PropertyGroupProperty(
