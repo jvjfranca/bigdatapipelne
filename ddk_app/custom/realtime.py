@@ -231,7 +231,7 @@ class RealTimeAnalytics(Construct):
             self,
             'lmbd-consumer',
             environment_id=environment_id,
-            code=lambda__.Code.from_asset('lambda/consumer'),
+            code=lambda__.Code.from_asset('lambda_app/consumer'),
             handler='function.handler',
             runtime=lambda__.Runtime.PYTHON_3_9,
             function_name='realtime-consumer',
@@ -255,7 +255,7 @@ class RealTimeAnalytics(Construct):
             self,
             'lmbd-api',
             environment_id=environment_id,
-            code=lambda__.Code.from_asset('lambda/api'),
+            code=lambda__.Code.from_asset('lambda_app/api'),
             handler='function.handler',
             runtime=lambda__.Runtime.PYTHON_3_9,
             function_name='api-backend'
