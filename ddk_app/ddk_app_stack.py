@@ -3,9 +3,9 @@ from typing import Any
 from aws_ddk_core.base import BaseStack
 from constructs import Construct
 
-from .encryption import Encryption
-from .historical import HistoricalAnalytics
-from .realtime import RealTimeAnalytics
+from .custom.encryption import Encryption
+from .custom.historical import HistoricalAnalytics
+from .custom.realtime import RealTimeAnalytics
 
 class DdkApplicationStack(BaseStack):
 
