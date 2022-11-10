@@ -76,7 +76,7 @@ def perform_tumbling_window_aggregation(input_table_name):
             Tumble.over("10.seconds").on("horario_transacao").alias("ten_second_window")
         )
         .group_by("numero_cartao, transaction_id, ten_second_window")
-        .select("transaction_id, numero_cartao, valor.sum as valor, ten_second_window.end as horario_transacao")
+        .select("numero_cartao, transaction_id, valor.sum as valor, ten_second_window.end as horario_transacao")
         .filter(col('valor') > float(5000))
     )
 

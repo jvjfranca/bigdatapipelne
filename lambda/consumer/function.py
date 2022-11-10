@@ -9,7 +9,7 @@ TABLE = environ.get('TABLE')
 
 
 def handler(event, context):
-    ttl = int(time.time() + 24*3600*30)
+    ttl = int(time() + 24*3600*30)
     for record in event['Records']:
         payload = base64.b64decode(record['kinesis']['data']).decode('utf-8')
         data = json.loads(payload)
