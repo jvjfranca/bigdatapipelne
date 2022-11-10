@@ -13,7 +13,6 @@ def handler(event, context):
     for record in event['Records']:
         payload = base64.b64decode(record['kinesis']['data']).decode('utf-8')
         data = json.loads(payload)
-        print(data)
         ddb_client.put_item(
             TableName=TABLE,
             Item={
