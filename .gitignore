@@ -6,6 +6,7 @@ pyvenv.cfg
 Scripts/
 # C extensions
 *.so
+share/
 
 # Distribution / packaging
 .Python
