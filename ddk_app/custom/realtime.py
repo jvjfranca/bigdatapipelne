@@ -24,10 +24,24 @@ from aws_ddk_core.resources import (
 
 class RealTimeAnalytics(Construct):
 
-    def __init__(self, scope: "Construct", id: builtins.str, environment_id: builtins.str, kms_cmk_key) -> None:
+    def __init__(self, scope: "Construct", id: builtins.str, environment_id: builtins.str, kms_cmk_key, region, account) -> None:
 
         super().__init__(scope, id)
 
+        self.account = account
+        self.region = region
+
+        ### Kinesis Data Stream Sink ####
+        stream_realtime = dstream.data_stream(
+            self,
+            "realtime-stream",
+            environment_id,
+            encryption=aws_kinesis.StreamEncryption.KMS,
+            encryption_key=kms_cmk_key,
+            retention_period=Duration.days(1),
+            stream_mode=aws_kinesis.StreamMode.ON_DEMAND,
+            stream_name="realtime-stream"
+        )
 
         ### Apache Flink Code Upload ####
 
@@ -43,21 +57,21 @@ class RealTimeAnalytics(Construct):
             'bbbank-flink-role',
             assumed_by=iam.ServicePrincipal('kinesisanalytics.amazonaws.com'),
             description='role utilizada pelo kinesis analytics do bbbank',
-            managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'AmazonKinesisFullAccess'
-                ),
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'CloudWatchLogsFullAccess'
-                ),
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    'AmazonS3FullAccess'
-                )
-            ]
+            # managed_policies=[
+            #     iam.ManagedPolicy.from_aws_managed_policy_name(
+            #         'AmazonKinesisFullAccess'
+            #     ),
+            #     iam.ManagedPolicy.from_aws_managed_policy_name(
+            #         'CloudWatchLogsFullAccess'
+            #     ),
+            #     iam.ManagedPolicy.from_aws_managed_policy_name(
+            #         'AmazonS3FullAccess'
+            #     )
+            # ]
         )
 
-        ### KMS inline policy ####
-        kms_access = iam.Policy(
+        ### Flink inline policy ####
+        flink_policy = iam.Policy(
             self,
             id='AcessoBBBankKMS',
             document=iam.PolicyDocument(
@@ -74,12 +88,60 @@ class RealTimeAnalytics(Construct):
                         resources=[
                             kms_cmk_key.key_arn
                         ]
-                    )
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "kinesis:DescribeStream",
+                            "kinesis:GetShardIterator",
+                            "kinesis:GetRecords",
+                            "kinesis:ListShards"
+                        ],
+                        resources=[
+                            f"arn:aws:kinesis:{self.region}:{self.account}:stream/card-stream"
+                        ]
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "kinesis:DescribeStream",
+                            "kinesis:PutRecord",
+                            "kinesis:PutRecords"
+                        ],
+                        resources=[
+                            stream_realtime.stream_arn
+                        ]
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "s3:GetObject",
+                            "s3:GetObjectVersion"
+                        ],
+                        resources=[
+                            f"arn:aws:s3:::ddk-*-*-assets-{self.account}-{self.region}/*"
+                        ]
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "logs:DescribeLogGroups",
+                            "logs:DescribeLogStreams"
+                        ],
+                        resources=[
+                            "*"
+                        ]
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "logs:PutLogEvents"
+                        ],
+                        resources=[
+                            f"arn:aws:logs:{self.region}:{self.account}:log-group:/aws/kinesis-analytics/*:log-stream:kinesis-analytics-log-stream"
+                        ]
+                    ),
+
                 ]
             )
         )
 
-        flink_role.attach_inline_policy(kms_access)
+        flink_role.attach_inline_policy(flink_policy)
 
         ### Kinesis Analytics ####
         flink = KDAApp(
@@ -143,17 +205,6 @@ class RealTimeAnalytics(Construct):
             application_name="cardtransactions"
         )
 
-        ### Kinesis Data Stream Sink ####
-        stream_realtime = dstream.data_stream(
-            self,
-            "realtime-stream",
-            environment_id,
-            encryption=aws_kinesis.StreamEncryption.KMS,
-            encryption_key=kms_cmk_key,
-            retention_period=Duration.days(1),
-            stream_mode=aws_kinesis.StreamMode.ON_DEMAND,
-            stream_name="realtime-stream"
-        )
 
         ### Tabela transacoes suspeitas ####
         ddb_realtime_table = ddb.Table(
@@ -169,7 +220,6 @@ class RealTimeAnalytics(Construct):
             partition_key=ddb.Attribute(name='numero_cartao', type=ddb.AttributeType.STRING),
             sort_key=ddb.Attribute(name='transaction_id', type=ddb.AttributeType.STRING)
         )
-
 
         ### Funcao lambda consumidora Data Stream Sink
         props = {
@@ -197,6 +247,7 @@ class RealTimeAnalytics(Construct):
 
         stream_realtime.grant_read(lmb_consumer)
 
+
         ddb_realtime_table.grant_write_data(lmb_consumer)
 
         ### Funcao lambda backend api gateway
@@ -217,3 +268,4 @@ class RealTimeAnalytics(Construct):
             id='bbbank-api',
             handler=lmb_api, 
         )
+

@@ -33,5 +33,7 @@ class DdkApplicationStack(BaseStack):
             self,
             'realtime-analytics',
             environment_id=environment_id,
-            kms_cmk_key=encryption_key.key()
+            kms_cmk_key=encryption_key.key(),
+            region=self.region,
+            account=self.account
         )
