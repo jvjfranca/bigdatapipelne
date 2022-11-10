@@ -35,6 +35,15 @@ def handler(event, context):
 
     operation = event['httpMethod']
     if operation in operations:
+        if operation == 'GET' and 'Key' in event['queryStringParameters']:
+            result = dynamo.query(
+                TableName=event['queryStringParameters']['TableName'],
+                KeyConditionExpression='numero_cartao = :numero_cartao',
+                ExpressionAttributeValues={
+                    ':numero_cartao': {'S': event['queryStringParameters']['Key']}
+                }
+            )
+            return respond(None, result)
         payload = event['queryStringParameters'] if operation == 'GET' else json.loads(event['body'])
         return respond(None, operations[operation](dynamo, payload))
     else:
