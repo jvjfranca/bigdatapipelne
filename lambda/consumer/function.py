@@ -9,16 +9,18 @@ TABLE = environ.get('TABLE')
 
 
 def handler(event, context):
-    ttl = int(time() + 24*3600*30)
+    ttl = str(time() + 24*3600*30)
     for record in event['Records']:
         payload = base64.b64decode(record['kinesis']['data']).decode('utf-8')
         data = json.loads(payload)
+        print(data)
         ddb_client.put_item(
             TableName=TABLE,
             Item={
-                'transaction_id':{'S': payload['transaction_id']},
-                'numero_cartao':{'S': payload['numero_cartao']},
-                'Valor':{'S': payload['valor']},
+                'numero_cartao': {'S': str(data['numero_cartao'])},
+                'transaction_id': {'S': str(data['transaction_id'])},
+                'horario_transacao': {'S': str(data['horario_transacao'])},
+                'Valor':{'N': str(data['valor'])},
                 'TTL': {'N': ttl}
             }
         )

@@ -166,8 +166,8 @@ class RealTimeAnalytics(Construct):
             point_in_time_recovery=True,
             removal_policy=RemovalPolicy.DESTROY,
             time_to_live_attribute='TTL',
-            partition_key=ddb.Attribute(name='transaction_id', type=ddb.AttributeType.STRING),
-            sort_key=ddb.Attribute(name='card_number', type=ddb.AttributeType.STRING)
+            partition_key=ddb.Attribute(name='numero_cartao', type=ddb.AttributeType.STRING),
+            sort_key=ddb.Attribute(name='transaction_id', type=ddb.AttributeType.STRING)
         )
 
 
