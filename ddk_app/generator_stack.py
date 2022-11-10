@@ -2,7 +2,7 @@ from aws_cdk import Stack
 import constructs
 import builtins
 import typing
-from .custom.generator import Generator
+from .custom import Generator
 from cdk_watchful import Watchful
 
 class GeneratorStack(Stack):

@@ -2,10 +2,12 @@ from typing import Any
 
 from aws_ddk_core.base import BaseStack
 from constructs import Construct
+from .custom import(
+    Encryption,
+    HistoricalAnalytics,
+    RealTimeAnalytics
+)
 
-from .custom.encryption import Encryption
-from .custom.historical import HistoricalAnalytics
-from .custom.realtime import RealTimeAnalytics
 
 class DdkApplicationStack(BaseStack):
 
