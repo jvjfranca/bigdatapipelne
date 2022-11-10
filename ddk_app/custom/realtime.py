@@ -28,13 +28,16 @@ class RealTimeAnalytics(Construct):
 
         super().__init__(scope, id)
 
+
+        ### Apache Flink Code Upload ####
+
         flink_code = aws_s3_assets.Asset(
             self,
             'flink-app-code',
             path='flink_app/'
         )
 
-
+        ### Kinesis Analytics Role #### TODO Fechar permissoes
         flink_role = iam.Role(
             self,
             'bbbank-flink-role',
@@ -53,7 +56,7 @@ class RealTimeAnalytics(Construct):
             ]
         )
 
-        
+        ### KMS inline policy ####
         kms_access = iam.Policy(
             self,
             id='AcessoBBBankKMS',
@@ -78,6 +81,7 @@ class RealTimeAnalytics(Construct):
 
         flink_role.attach_inline_policy(kms_access)
 
+        ### Kinesis Analytics ####
         flink = KDAApp(
             self, 
             'realtime-analitycs',
@@ -139,6 +143,7 @@ class RealTimeAnalytics(Construct):
             application_name="cardtransactions"
         )
 
+        ### Kinesis Data Stream Sink ####
         stream_realtime = dstream.data_stream(
             self,
             "realtime-stream",
@@ -150,10 +155,11 @@ class RealTimeAnalytics(Construct):
             stream_name="realtime-stream"
         )
 
+        ### Tabela transacoes suspeitas ####
         ddb_realtime_table = ddb.Table(
             self,
             id='realtime-table',
-            table_name='transacoes-suspeitas',
+            # table_name='transacoes',
             encryption=ddb.TableEncryption.CUSTOMER_MANAGED,
             encryption_key=kms_cmk_key,
             billing_mode=ddb.BillingMode.PAY_PER_REQUEST,
@@ -164,6 +170,8 @@ class RealTimeAnalytics(Construct):
             sort_key=ddb.Attribute(name='card_number', type=ddb.AttributeType.STRING)
         )
 
+
+        ### Funcao lambda consumidora Data Stream Sink
         props = {
             "environment": {
                 'TABLE': ddb_realtime_table.table_name
@@ -191,6 +199,7 @@ class RealTimeAnalytics(Construct):
 
         ddb_realtime_table.grant_write_data(lmb_consumer)
 
+        ### Funcao lambda backend api gateway
         lmb_api = LambdaFactory.function(
             self,
             'lmbd-api',
