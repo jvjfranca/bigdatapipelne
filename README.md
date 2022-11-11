@@ -10,7 +10,7 @@
 
 <img src="exemplo-image.png" alt="exemplo imagem">
 
-[[https://github.com/jvjfranca/bigdatapipelne/blob/main/img/projeto_bb.drawio.png|alt=projeto]]
+[[https://github.com/jvjfranca/bigdatapipelne/blob/main/img/projeto_bb.drawio.png]]
 
 > Linha adicional de texto informativo sobre o que o projeto faz. Sua introdução deve ter cerca de 2 ou 3 linhas. Não exagere, as pessoas não vão ler.
 
