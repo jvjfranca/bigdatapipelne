@@ -4,8 +4,8 @@
 
 ![diagrama](https://github.com/jvjfranca/bigdatapipelne/blob/main/img/diagrama.png)
 
-> Este projeto consiste em analise de dados em tempo real e historica utilizando AWS Kinesis e AWS Glue
-> Foi utilizado o DataOps Development Kit e Cloud Development Kit em sua construcao.
+> Este projeto consiste em analise de dados em tempo real e historica utilizando AWS Kinesis e AWS Glue.
+> Utilizado o DataOps Development Kit e Cloud Development Kit em sua construcao.
 
 
 ##  Pré-requisitos
