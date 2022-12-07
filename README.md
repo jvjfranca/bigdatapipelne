@@ -12,7 +12,7 @@
 
 | Diretorio/Arquivo          | Descricao                                  | Observacoes                                                                                                |
 | -------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| ddk_app                    | zyx                                        | zyx                                                                                                        |
+| ddk_app                    | Modulos DDK e CDK                                        | -                                                                                                        |
 | ddk_app/custom             | Modulo com construtores DDK e CDK          | Construtores personalizados DDK / CDK utilizados nas stacks                                                |
 | ddk_app/ddk_app_stack.py   | Stack DDK/CDK                              | Instanciamento de Stacks Analytics e Criptografia                                                          |
 | ddk_app/generator_stack.py | Stack gerador de transacoes de cartao      | Instanciamento de Stack servico gerador de transacoes em Python                                            |
@@ -24,4 +24,3 @@
 | cdk.json                   | Configuracao CDK                           |                                                                                                            |
 | ddk.json                   | Configuracao DDK                           |                                                                                                            |
 | requirements.txt           | Dependencias para execucao do projeto      |                                                                                                            |
-b
